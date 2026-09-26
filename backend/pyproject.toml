@@ -40,6 +40,10 @@ dependencies = [
     "passlib[bcrypt]>=1.7.4",
     # 日志
     "loguru>=0.7.2",
+    # 邮件通知
+    "aiosmtplib>=3.0.0",
+    # 邮件模板渲染
+    "jinja2>=3.1.0",
 ]
 
 [project.optional-dependencies]

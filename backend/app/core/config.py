@@ -64,6 +64,28 @@ class Settings(BaseSettings):
     scheduler_enabled: bool = Field(default=True)
     scheduler_timezone: str = Field(default="Asia/Shanghai")
 
+    # ---- SMTP 邮件通知 ----
+    smtp_enabled: bool = Field(default=False)
+    smtp_host: str = Field(default="smtp.gmail.com")
+    smtp_port: int = Field(default=587)
+    smtp_user: str = Field(default="")
+    smtp_password: str = Field(default="")
+    smtp_from_email: str = Field(default="alerts@btc-platform.local")
+    smtp_from_name: str = Field(default="BTC Intelligence Platform")
+    smtp_use_tls: bool = Field(default=True)
+    smtp_use_ssl: bool = Field(default=False)
+    smtp_timeout_seconds: int = Field(default=15)
+
+    # ---- Alert 引擎 ----
+    alert_enabled: bool = Field(default=True)
+    alert_scan_interval_seconds: int = Field(default=60)
+    alert_default_recipient: str = Field(default="")  # MVP 单收件人
+    alert_cooldown_default_seconds: int = Field(default=3600)
+    alert_max_per_hour: int = Field(default=20)
+
+    # ---- 平台入口（邮件中「查看详情」链接）----
+    platform_url: str = Field(default="http://localhost:3000")
+
     # ---- 派生属性：连接 URL ----
     @property
     def database_url(self) -> str:

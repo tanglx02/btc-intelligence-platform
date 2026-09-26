@@ -1,0 +1,80 @@
+{# 周报邮件 HTML 模板。
+   变量：platform_name, period{start,end}, performance{close,high,low,change_pct},
+        engines_changes[{label,from,to,changed}], etf_week{net_flow_total,flow_days,inflow_days},
+        portfolio{total_value,cumulative_return,daily_plan_text}（可整体为 None）,
+        platform_url #}
+{% set pct = performance.change_pct %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#f4f5f7;font-family:'PingFang SC','Microsoft YaHei',Helvetica,Arial,sans-serif;">
+<div style="max-width:640px;margin:24px auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
+  <div style="background:linear-gradient(135deg,#0f172a,#1e293b);padding:22px 28px;">
+    <div style="font-size:12px;letter-spacing:2px;color:#94a3b8;">BTC INTELLIGENCE PLATFORM</div>
+    <div style="margin-top:6px;font-size:19px;font-weight:700;color:#f8fafc;">每周市场报告</div>
+    <div style="margin-top:4px;font-size:12px;color:#94a3b8;">{{ period.start }} ~ {{ period.end }}</div>
+  </div>
+
+  <div style="padding:24px 28px;">
+    <!-- 本周表现 -->
+    <h3 style="margin:0 0 8px;font-size:14px;color:#0f172a;">本周表现</h3>
+    <table width="100%" cellpadding="0" cellspacing="0" style="font-size:13px;">
+      <tr>
+        <td style="background:#f1f5f9;padding:12px;border-radius:8px 0 0 8px;text-align:center;">
+          <div style="color:#64748b;font-size:12px;">最高</div>
+          <div style="font-weight:700;color:#0f172a;">{{ performance.high or "—" }}</div></td>
+        <td style="background:#f1f5f9;padding:12px;text-align:center;">
+          <div style="color:#64748b;font-size:12px;">最低</div>
+          <div style="font-weight:700;color:#0f172a;">{{ performance.low or "—" }}</div></td>
+        <td style="background:#f1f5f9;padding:12px;border-radius:0 8px 8px 0;text-align:center;">
+          <div style="color:#64748b;font-size:12px;">周涨跌幅</div>
+          <div style="font-weight:800;color:{{ '#dc2626' if pct is not none and pct < 0 else '#16a34a' }};">
+            {% if pct is not none %}{{ "%+.2f"|format(pct) }}%{% else %}—{% endif %}</div></td>
+      </tr>
+    </table>
+
+    <!-- 维度变化 -->
+    {% if engines_changes %}
+    <h3 style="margin:22px 0 8px;font-size:14px;color:#0f172a;">周期 / 链上 / 资金流 / ETF / 风险变化</h3>
+    <table width="100%" cellpadding="0" cellspacing="0" style="font-size:13px;">
+      {% for e in engines_changes %}
+      <tr style="border-bottom:1px solid #f1f5f9;">
+        <td style="padding:8px 4px;color:#64748b;width:110px;">{{ e.label }}</td>
+        <td style="padding:8px 4px;color:#334155;">{{ e.from or "—" }} → <b style="color:{{ '#b45309' if e.changed else '#0f172a' }};">{{ e.to or "—" }}</b>
+          {% if e.changed %}<span style="color:#b45309;">● 变化</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </table>
+    {% endif %}
+
+    <!-- ETF 资金流 -->
+    {% if etf_week and etf_week.net_flow_total %}
+    <h3 style="margin:22px 0 8px;font-size:14px;color:#0f172a;">ETF 周度资金流</h3>
+    <div style="padding:12px 14px;background:#f1f5f9;border-radius:8px;font-size:13px;color:#334155;">
+      本周净流入合计：<b style="color:{{ '#16a34a' if (etf_week.net_flow_total or 0) >= 0 else '#dc2626' }};">{{ etf_week.net_flow_total }}</b>
+      {% if etf_week.flow_days is not none %}（流入 {{ etf_week.inflow_days or 0 }} 天 / 共 {{ etf_week.flow_days }} 个交易日）{% endif %}
+    </div>
+    {% endif %}
+
+    <!-- 投资计划执行情况 -->
+    {% if portfolio %}
+    <h3 style="margin:22px 0 8px;font-size:14px;color:#0f172a;">投资计划执行情况</h3>
+    <div style="padding:12px 14px;background:#f1f5f9;border-radius:8px;font-size:13px;color:#334155;line-height:1.9;">
+      组合总值：<b>{{ portfolio.total_value or "—" }}</b><br>
+      累计收益率：<b>{{ portfolio.cumulative_return or "—" }}</b><br>
+      {% if portfolio.daily_plan_text %}{{ portfolio.daily_plan_text }}{% endif %}
+    </div>
+    {% endif %}
+
+    <p style="margin:22px 0 0;padding-top:14px;border-top:1px dashed #e2e8f0;font-size:12px;color:#94a3b8;line-height:1.6;">
+      免责声明：本报告仅为数据汇总，不构成任何投资建议。
+    </p>
+  </div>
+
+  <div style="padding:16px 28px;background:#f8fafc;border-top:1px solid #e2e8f0;text-align:center;">
+    <a href="{{ platform_url }}" style="display:inline-block;padding:10px 28px;background:#0f172a;color:#ffffff;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600;">打开平台</a>
+    <div style="margin-top:10px;font-size:11px;color:#94a3b8;">{{ platform_name }} · 本邮件由系统自动发送</div>
+  </div>
+</div>
+</body>
+</html>

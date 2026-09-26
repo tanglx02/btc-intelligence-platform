@@ -1,0 +1,31 @@
+{# 预警触发邮件纯文本模板（与 HTML 版内容一致，变量相同）。 #}
+============================================================
+【BTC智能预警】{{ rule.rule_name }}
+严重程度：{{ rule.severity }}
+============================================================
+
+触发时间：{{ triggered_at }}
+触发规则：{{ rule.condition_text }}
+{% if event and event.description %}事件说明：{{ event.description }}
+{% endif %}
+{% if metrics %}
+相关指标：
+{% for m in metrics %}  - {{ m.label }}：当前 {{ m.current }}，阈值 {{ m.threshold }}，历史分位 {{ m.percentile }}
+{% endfor %}{% endif %}
+市场上下文：
+  当前价格：{{ market.price or "—" }}{% if market.price_change_24h is not none %}（24H {{ "%+.2f"|format(market.price_change_24h) }}%）{% endif %}
+  市场阶段：{{ market.cycle_phase or "—" }}
+  估值状态：{{ market.valuation_level or "—" }}
+  风险等级：{{ market.risk_level or "—" }}
+
+数据信息：
+  数据源：{{ data_info.source or "—" }}
+  数据质量：{{ data_info.quality or "—" }}
+  {% if data_info.failover %}⚠ 已发生故障切换
+  {% endif %}
+------------------------------------------------------------
+免责声明：本次提醒表示你设置的监测条件已经成立，不代表未来价格一定上涨或下跌。请结合自身风险承受能力独立决策。
+
+查看详情：{{ platform_url }}/alerts
+
+{{ platform_name }} · 本邮件由系统自动发送

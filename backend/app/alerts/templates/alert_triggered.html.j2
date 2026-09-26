@@ -1,0 +1,105 @@
+{# 预警触发邮件 HTML 模板。
+   变量：platform_name, rule{rule_name,severity,category,condition_text,target_symbol},
+        triggered_at, event{title,description,trigger_value,trigger_threshold},
+        metrics[{label,current,threshold,percentile}],
+        market{price,price_change_24h,cycle_phase,valuation_level,risk_level,overall_regime},
+        data_info{source,quality,failover}, platform_url #}
+{% set sev = {
+  "INFO":     {"bg": "#f3f4f6", "fg": "#374151"},
+  "LOW":      {"bg": "#dbeafe", "fg": "#1d4ed8"},
+  "MEDIUM":   {"bg": "#fef3c7", "fg": "#92400e"},
+  "HIGH":     {"bg": "#ffedd5", "fg": "#c2410c"},
+  "CRITICAL": {"bg": "#fee2e2", "fg": "#b91c1c"}
+} %}
+{% set c = sev.get(rule.severity, sev["MEDIUM"]) %}
+{% set chg = market.price_change_24h %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#f4f5f7;font-family:'PingFang SC','Microsoft YaHei',Helvetica,Arial,sans-serif;">
+<div style="max-width:640px;margin:24px auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
+  <!-- 头部 -->
+  <div style="background:#111827;padding:20px 28px;">
+    <div style="font-size:12px;letter-spacing:2px;color:#9ca3af;">BTC INTELLIGENCE PLATFORM</div>
+    <div style="margin-top:6px;font-size:18px;font-weight:700;color:#f9fafb;">
+      【BTC智能预警】{{ rule.rule_name }}
+    </div>
+    <span style="display:inline-block;margin-top:10px;padding:3px 12px;border-radius:999px;
+      background:{{ c.bg }};color:{{ c.fg }};font-size:12px;font-weight:700;">
+      {{ rule.severity }}
+    </span>
+  </div>
+
+  <div style="padding:24px 28px;">
+    <!-- 触发信息 -->
+    <table width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;color:#374151;line-height:1.7;">
+      <tr><td style="width:96px;color:#6b7280;vertical-align:top;">触发时间</td>
+          <td style="color:#111827;font-weight:600;">{{ triggered_at }}</td></tr>
+      <tr><td style="color:#6b7280;vertical-align:top;">触发规则</td>
+          <td>{{ rule.condition_text }}</td></tr>
+      {% if event and event.description %}
+      <tr><td style="color:#6b7280;vertical-align:top;">事件说明</td>
+          <td>{{ event.description }}</td></tr>
+      {% endif %}
+    </table>
+
+    <!-- 相关指标：当前值 vs 阈值 vs 历史分位 -->
+    {% if metrics %}
+    <h3 style="margin:22px 0 8px;font-size:14px;color:#111827;">相关指标</h3>
+    <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:8px;font-size:13px;">
+      <tr style="background:#f9fafb;color:#6b7280;">
+        <th align="left" style="padding:8px 12px;font-weight:600;">指标</th>
+        <th align="right" style="padding:8px 12px;font-weight:600;">当前值</th>
+        <th align="right" style="padding:8px 12px;font-weight:600;">阈值</th>
+        <th align="right" style="padding:8px 12px;font-weight:600;">历史分位</th>
+      </tr>
+      {% for m in metrics %}
+      <tr style="border-top:1px solid #f3f4f6;color:#111827;">
+        <td style="padding:8px 12px;">{{ m.label }}</td>
+        <td align="right" style="padding:8px 12px;font-weight:700;">{{ m.current }}</td>
+        <td align="right" style="padding:8px 12px;color:#6b7280;">{{ m.threshold }}</td>
+        <td align="right" style="padding:8px 12px;color:#6b7280;">{{ m.percentile }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+    {% endif %}
+
+    <!-- 市场上下文 -->
+    <h3 style="margin:22px 0 8px;font-size:14px;color:#111827;">市场上下文</h3>
+    <table width="100%" cellpadding="0" cellspacing="0" style="font-size:13px;">
+      <tr>
+        <td style="width:50%;padding:10px 12px;background:#f9fafb;border-radius:8px 0 0 8px;">
+          <div style="color:#6b7280;">当前价格</div>
+          <div style="font-size:17px;font-weight:700;color:#111827;">{{ market.price or "—" }}</div>
+          {% if chg is not none %}<div style="color:{{ '#dc2626' if chg < 0 else '#16a34a' }};">24H {{ "%+.2f"|format(chg) }}%</div>{% endif %}
+        </td>
+        <td style="width:50%;padding:10px 12px;background:#f9fafb;border-radius:0 8px 8px 0;">
+          <div style="color:#6b7280;">市场阶段</div>
+          <div style="font-weight:600;color:#111827;">{{ market.cycle_phase or "—" }}</div>
+          <div style="color:#6b7280;margin-top:4px;">估值：{{ market.valuation_level or "—" }}　风险：{{ market.risk_level or "—" }}</div>
+        </td>
+      </tr>
+    </table>
+
+    <!-- 数据信息 -->
+    <div style="margin-top:16px;padding:10px 12px;background:#eff6ff;border-radius:8px;font-size:12px;color:#1e40af;">
+      数据源：{{ data_info.source or "—" }}　·　数据质量：{{ data_info.quality or "—" }}
+      {% if data_info.failover %}　·　<span style="color:#b45309;">⚠ 已发生故障切换</span>{% endif %}
+    </div>
+
+    <!-- 免责声明 -->
+    <p style="margin:20px 0 0;padding-top:14px;border-top:1px dashed #e5e7eb;font-size:12px;color:#9ca3af;line-height:1.6;">
+      免责声明：本次提醒表示你设置的监测条件已经成立，不代表未来价格一定上涨或下跌。请结合自身风险承受能力独立决策。
+    </p>
+  </div>
+
+  <!-- 底部 -->
+  <div style="padding:16px 28px;background:#f9fafb;border-top:1px solid #e5e7eb;text-align:center;">
+    <a href="{{ platform_url }}/alerts"
+       style="display:inline-block;padding:10px 28px;background:#111827;color:#ffffff;border-radius:8px;
+       text-decoration:none;font-size:14px;font-weight:600;">查看详情</a>
+    <div style="margin-top:10px;font-size:11px;color:#9ca3af;">{{ platform_name }} · 本邮件由系统自动发送</div>
+  </div>
+</div>
+</body>
+</html>

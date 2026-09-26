@@ -4,6 +4,14 @@
 
 - ProviderService      : Provider 业务层统一入口（缓存 + 标准化 + Failover 封装）
 - ServiceResult        : 业务层统一返回结构
+- CategoryServiceBase  : 分类服务公共基类（本地优先 + 缓存 + Failover）
+- MarketService        : 市场行情
+- OnChainService       : 链上数据
+- ETFService           : 现货 ETF 资金流
+- DerivativesService   : 衍生品
+- OptionsService       : 期权
+- MacroService         : 宏观经济
+- SentimentService     : 市场情绪
 - RawDataStore         : 原始数据 append-only 存储
 - NormalizedDataStore  : 标准化数据批量写入（Write Gate + UPSERT）
 - DataNormalizer       : 数据标准化管道（字段/单位/时间/精度统一）
@@ -18,6 +26,14 @@ from app.services.provider_service import (
     get_provider_service,
     set_provider_service,
 )
+from app.services.base_service import CategoryServiceBase
+from app.services.market_service import MarketService
+from app.services.onchain_service import OnChainService
+from app.services.etf_service import ETFService
+from app.services.derivatives_service import DerivativesService
+from app.services.options_service import OptionsService
+from app.services.macro_service import MacroService
+from app.services.sentiment_service import SentimentService
 from app.services.data_store import (
     NormalizedDataStore,
     RawDataStore,
@@ -50,17 +66,25 @@ from app.services.cross_validator import (
 )
 
 __all__ = [
+    "CategoryServiceBase",
     "CrossValidationResult",
     "CrossValidator",
     "DataGap",
     "DataNormalizer",
+    "DerivativesService",
+    "ETFService",
     "GapDetectionResult",
     "GapDetector",
     "GapFillResult",
+    "MacroService",
+    "MarketService",
     "NormalizationResult",
     "NormalizedDataStore",
+    "OnChainService",
+    "OptionsService",
     "ProviderService",
     "RawDataStore",
+    "SentimentService",
     "ServiceResult",
     "StoreResult",
     "SyncOutcome",

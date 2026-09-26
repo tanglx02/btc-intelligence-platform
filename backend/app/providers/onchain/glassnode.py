@@ -77,6 +77,9 @@ _DEFAULT_START = "2010-01-03"  # BTC 创世后首个可用日期
 class GlassnodeProvider(BaseOnChainProvider):
     """Glassnode 链上指标 Provider。"""
 
+    # 同一类在 exchange_flow 类别下的别名注册（YAML: glassnode_flow）
+    aliases = ("glassnode_flow",)
+
     # ---- 生命周期 ----
 
     async def health_check(self) -> bool:

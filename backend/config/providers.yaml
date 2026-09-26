@@ -146,6 +146,16 @@ providers:
       proxy: null
       description: "IntoTheBlock 链上指标"
 
+    blockchain_com:
+      enabled: true
+      priority: 4
+      base_url: "https://api.blockchain.info"
+      timeout: {connect: 10, read: 20, write: 10}
+      retry: {count: 2, backoff_factor: 2, max_delay: 60}
+      rate_limit: {requests: 60, period: 60}
+      proxy: "http://127.0.0.1:7890"
+      description: "Blockchain.com 免费网络活动指标（活跃地址/交易数/算力/难度）"
+
   # ======== 交易所资金流 ========
   exchange_flow:
     cryptoquant_flow:
@@ -248,6 +258,17 @@ providers:
       proxy: "http://127.0.0.1:7890"
       description: "OKX 期权数据"
 
+    coinglass_options:
+      enabled: true
+      priority: 3
+      base_url: "https://open-api.coinglass.com"
+      api_key: "${COINGLASS_API_KEY}"
+      timeout: {connect: 5, read: 15, write: 5}
+      retry: {count: 2, backoff_factor: 2, max_delay: 30}
+      rate_limit: {requests: 30, period: 60}
+      proxy: "http://127.0.0.1:7890"
+      description: "Coinglass 期权聚合数据（成交量/到期日）"
+
   # ======== 宏观经济 ========
   macro:
     fred:
@@ -270,6 +291,16 @@ providers:
       rate_limit: {requests: 60, period: 60}
       proxy: "http://127.0.0.1:7890"
       description: "Trading Economics 宏观数据（备用，暂时禁用）"
+
+    world_bank:
+      enabled: true
+      priority: 3
+      base_url: "https://api.worldbank.org/v2"
+      timeout: {connect: 10, read: 20, write: 10}
+      retry: {count: 2, backoff_factor: 2, max_delay: 60}
+      rate_limit: {requests: 60, period: 60}
+      proxy: null
+      description: "世界银行宏观数据（GDP/通胀/失业率/M2，年度权威口径）"
 
   # ======== 市场情绪 ========
   sentiment:

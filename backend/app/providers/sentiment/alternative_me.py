@@ -171,11 +171,22 @@ class AlternativeMeProvider(BaseSentimentProvider):
         """新闻情绪：Alternative.me 不提供。"""
         return unsupported_result(self.name, "news_sentiment")
 
-    async def get_social_sentiment(self, period: str = "24h") -> FetchResult:
-        """社交情绪：Alternative.me 不提供（由 LunarCrush 覆盖）。"""
+    async def get_social_sentiment(
+        self, period: str = "24h", symbol: str = "BTC"
+    ) -> FetchResult:
+        """社交情绪：Alternative.me 不提供（由 LunarCrush 覆盖）。
+
+        symbol 参数仅为与 LunarCrush 保持接口一致（忽略）。
+        """
         return unsupported_result(self.name, "social_sentiment")
 
     # ---- 扩展方法（非基类接口）----
+
+    async def get_social_volume(
+        self, period: str = "24h", symbol: str = "BTC"
+    ) -> FetchResult:
+        """社交讨论量：Alternative.me 不提供（由 LunarCrush 覆盖）。"""
+        return unsupported_result(self.name, "social_volume")
 
     async def get_fear_greed_history(self, limit: int = 30) -> FetchResult:
         """恐惧贪婪指数历史序列（最近 limit 天，升序）。"""

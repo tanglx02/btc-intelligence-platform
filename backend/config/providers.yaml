@@ -1,0 +1,331 @@
+# =============================================================================
+# Provider 配置文件 — BTC 全市场智能研究平台
+# =============================================================================
+# 说明：
+#   - 所有敏感信息（API Key / Secret）通过 ${ENV_VAR} 语法从环境变量注入，
+#     禁止硬编码。未设置的环境变量解析为空字符串（不报错）。
+#   - timeout / retry / rate_limit 支持标量简写或嵌套字典两种形式。
+#   - priority 数值越小优先级越高；locked=true 时优先级不被健康评分动态调整。
+#   - proxy 支持 http:// / https:// / socks5://，null 表示直连。
+# =============================================================================
+
+version: "1.0"
+
+# -----------------------------------------------------------------------------
+# 全局默认配置（各 Provider 可覆盖）
+# -----------------------------------------------------------------------------
+defaults:
+  enabled: true
+  timeout:
+    connect: 5
+    read: 10
+    write: 10
+    pool: 10
+  retry:
+    count: 3
+    backoff_factor: 2.0
+    max_delay: 60
+    jitter: true
+  rate_limit:
+    requests: 60
+    period: 60
+  keep_alive: true
+  max_connections: 20
+  verify_ssl: true
+  health_check_interval: 60
+  health_check_timeout: 10
+  headers:
+    User-Agent: "BTC-Platform/1.0"
+
+# -----------------------------------------------------------------------------
+# Provider 定义（按数据类别分组）
+# -----------------------------------------------------------------------------
+providers:
+  # ======== 市场行情 ========
+  market:
+    binance:
+      enabled: true
+      priority: 1
+      base_url: "https://api.binance.com"
+      api_key: "${BINANCE_API_KEY}"
+      api_secret: "${BINANCE_API_SECRET}"
+      timeout: {connect: 5, read: 10, write: 5}
+      retry: {count: 3, backoff_factor: 2, max_delay: 30}
+      rate_limit: {requests: 1200, period: 60}
+      proxy: null
+      description: "Binance 现货行情（全球流动性最佳）"
+      supported_symbols: ["BTC/USDT"]
+      supported_intervals: ["1m", "5m", "15m", "1h", "4h", "1d"]
+
+    okx:
+      enabled: true
+      priority: 2
+      base_url: "https://www.okx.com"
+      api_key: "${OKX_API_KEY}"
+      api_secret: "${OKX_API_SECRET}"
+      api_passphrase: "${OKX_API_PASSPHRASE}"
+      timeout: {connect: 5, read: 12, write: 5}
+      retry: {count: 3, backoff_factor: 2, max_delay: 30}
+      rate_limit: {requests: 600, period: 60}
+      proxy: "http://127.0.0.1:7890"
+      description: "OKX 现货行情"
+      supported_symbols: ["BTC/USDT", "BTC-USDT"]
+      supported_intervals: ["1m", "5m", "15m", "1h", "4h", "1d"]
+
+    coinbase:
+      enabled: true
+      priority: 3
+      base_url: "https://api.coinbase.com"
+      api_key: "${COINBASE_API_KEY}"
+      timeout: {connect: 5, read: 15, write: 5}
+      retry: {count: 3, backoff_factor: 2, max_delay: 30}
+      rate_limit: {requests: 300, period: 60}
+      proxy: "socks5://127.0.0.1:1080"
+      description: "Coinbase 现货行情（合规标杆）"
+      supported_symbols: ["BTC/USD", "BTC/USDT"]
+      supported_intervals: ["1m", "5m", "15m", "1h", "1d"]
+
+    kraken:
+      enabled: true
+      priority: 4
+      base_url: "https://api.kraken.com"
+      api_key: "${KRAKEN_API_KEY}"
+      api_secret: "${KRAKEN_API_SECRET}"
+      timeout: {connect: 5, read: 10, write: 5}
+      retry: {count: 3, backoff_factor: 2, max_delay: 30}
+      rate_limit: {requests: 60, period: 60}
+      proxy: "http://127.0.0.1:7890"
+      description: "Kraken 现货行情"
+      supported_symbols: ["BTC/USD", "BTC/USDT"]
+
+    bybit:
+      enabled: false
+      priority: 5
+      base_url: "https://api.bybit.com"
+      timeout: {connect: 5, read: 10, write: 5}
+      rate_limit: {requests: 120, period: 60}
+      description: "Bybit 现货行情（暂时禁用）"
+
+  # ======== 链上数据 ========
+  onchain:
+    glassnode:
+      enabled: true
+      priority: 1
+      base_url: "https://api.glassnode.com/v1"
+      api_key: "${GLASSNODE_API_KEY}"
+      timeout: {connect: 10, read: 30, write: 10}
+      retry: {count: 2, backoff_factor: 2, max_delay: 60}
+      rate_limit: {requests: 30, period: 60}
+      proxy: "http://127.0.0.1:7890"
+      description: "Glassnode 链上指标（MVRV/SOPR/NUPL 等）"
+      extra:
+        resolution: "24h"
+
+    cryptoquant:
+      enabled: true
+      priority: 2
+      base_url: "https://api.cryptoquant.com/v1"
+      api_key: "${CRYPTOQUANT_API_KEY}"
+      timeout: {connect: 10, read: 20, write: 10}
+      retry: {count: 2, backoff_factor: 2, max_delay: 60}
+      rate_limit: {requests: 60, period: 60}
+      proxy: "http://127.0.0.1:7890"
+      description: "CryptoQuant 链上指标与交易所资金流"
+
+    intotheblock:
+      enabled: true
+      priority: 3
+      base_url: "https://api.intotheblock.com"
+      api_key: "${INTOTHEBLOCK_API_KEY}"
+      timeout: {connect: 10, read: 20, write: 10}
+      retry: {count: 2, backoff_factor: 2, max_delay: 60}
+      rate_limit: {requests: 100, period: 60}
+      proxy: null
+      description: "IntoTheBlock 链上指标"
+
+  # ======== 交易所资金流 ========
+  exchange_flow:
+    cryptoquant_flow:
+      enabled: true
+      priority: 1
+      base_url: "https://api.cryptoquant.com/v1"
+      api_key: "${CRYPTOQUANT_API_KEY}"
+      timeout: {connect: 10, read: 20, write: 10}
+      rate_limit: {requests: 60, period: 60}
+      proxy: "http://127.0.0.1:7890"
+      description: "CryptoQuant 交易所净流入/流出"
+
+    glassnode_flow:
+      enabled: true
+      priority: 2
+      base_url: "https://api.glassnode.com/v1"
+      api_key: "${GLASSNODE_API_KEY}"
+      timeout: {connect: 10, read: 30, write: 10}
+      rate_limit: {requests: 30, period: 60}
+      proxy: "http://127.0.0.1:7890"
+      description: "Glassnode 交易所储备/资金流"
+
+  # ======== ETF 资金流 ========
+  etf:
+    farside:
+      enabled: true
+      priority: 1
+      base_url: "https://farside.co.uk"
+      timeout: {connect: 10, read: 30, write: 10}
+      retry: {count: 2, backoff_factor: 2, max_delay: 60}
+      rate_limit: {requests: 10, period: 60}
+      proxy: "http://127.0.0.1:7890"
+      description: "Farside 现货 ETF 资金流（网页抓取）"
+      extra:
+        scrape_mode: true
+
+    sosovalue:
+      enabled: true
+      priority: 2
+      base_url: "https://api.sosovalue.com"
+      api_key: "${SOSOV_VALUE_API_KEY}"
+      timeout: {connect: 10, read: 20, write: 10}
+      rate_limit: {requests: 30, period: 60}
+      proxy: "http://127.0.0.1:7890"
+      description: "SoSoValue ETF 资金流与持仓"
+
+  # ======== 衍生品 ========
+  derivatives:
+    binance_futures:
+      enabled: true
+      priority: 1
+      base_url: "https://fapi.binance.com"
+      api_key: "${BINANCE_API_KEY}"
+      api_secret: "${BINANCE_API_SECRET}"
+      timeout: {connect: 5, read: 10, write: 5}
+      retry: {count: 3, backoff_factor: 2, max_delay: 30}
+      rate_limit: {requests: 2400, period: 60}
+      proxy: null
+      description: "Binance 合约（资金费率/未平仓/多空比）"
+
+    coinglass:
+      enabled: true
+      priority: 2
+      base_url: "https://open-api.coinglass.com"
+      api_key: "${COINGLASS_API_KEY}"
+      timeout: {connect: 5, read: 15, write: 5}
+      retry: {count: 2, backoff_factor: 2, max_delay: 30}
+      rate_limit: {requests: 30, period: 60}
+      proxy: "http://127.0.0.1:7890"
+      description: "Coinglass 全市场衍生品聚合数据"
+
+    bybit_derivatives:
+      enabled: true
+      priority: 3
+      base_url: "https://api.bybit.com"
+      timeout: {connect: 5, read: 10, write: 5}
+      rate_limit: {requests: 120, period: 60}
+      proxy: "socks5://127.0.0.1:1080"
+      description: "Bybit 合约衍生品数据"
+
+  # ======== 期权 ========
+  options:
+    deribit:
+      enabled: true
+      priority: 1
+      base_url: "https://www.deribit.com/api/v2"
+      timeout: {connect: 5, read: 15, write: 5}
+      retry: {count: 3, backoff_factor: 2, max_delay: 30}
+      rate_limit: {requests: 120, period: 60}
+      proxy: "http://127.0.0.1:7890"
+      description: "Deribit 期权（隐含波动率/看跌看涨比/最大痛点）"
+
+    okx_options:
+      enabled: true
+      priority: 2
+      base_url: "https://www.okx.com"
+      api_key: "${OKX_API_KEY}"
+      timeout: {connect: 5, read: 12, write: 5}
+      rate_limit: {requests: 600, period: 60}
+      proxy: "http://127.0.0.1:7890"
+      description: "OKX 期权数据"
+
+  # ======== 宏观经济 ========
+  macro:
+    fred:
+      enabled: true
+      priority: 1
+      base_url: "https://api.stlouisfed.org/fred"
+      api_key: "${FRED_API_KEY}"
+      timeout: {connect: 10, read: 20, write: 10}
+      retry: {count: 2, backoff_factor: 2, max_delay: 60}
+      rate_limit: {requests: 120, period: 60}
+      proxy: "http://127.0.0.1:7890"
+      description: "FRED 宏观经济数据（利率/美元指数/流动性）"
+
+    trading_economics:
+      enabled: false
+      priority: 2
+      base_url: "https://api.tradingeconomics.com"
+      api_key: "${TRADING_ECONOMICS_KEY}"
+      timeout: {connect: 10, read: 20, write: 10}
+      rate_limit: {requests: 60, period: 60}
+      proxy: "http://127.0.0.1:7890"
+      description: "Trading Economics 宏观数据（备用，暂时禁用）"
+
+  # ======== 市场情绪 ========
+  sentiment:
+    alternative_me:
+      enabled: true
+      priority: 1
+      base_url: "https://api.alternative.me"
+      timeout: {connect: 5, read: 10, write: 5}
+      retry: {count: 2, backoff_factor: 2, max_delay: 30}
+      rate_limit: {requests: 30, period: 60}
+      proxy: null
+      description: "Alternative.me 恐惧贪婪指数"
+
+    lunarcrush:
+      enabled: true
+      priority: 2
+      base_url: "https://lunarcrush.com/api4"
+      api_key: "${LUNARCRUSH_API_KEY}"
+      timeout: {connect: 5, read: 15, write: 5}
+      rate_limit: {requests: 60, period: 60}
+      proxy: "http://127.0.0.1:7890"
+      description: "LunarCrush 社交媒体情绪与热度"
+
+# -----------------------------------------------------------------------------
+# Failover 全局配置
+# -----------------------------------------------------------------------------
+failover:
+  recovery_threshold: 3        # 连续成功 N 次才恢复
+  probe_interval_initial: 30   # 首次探测间隔（秒）
+  probe_interval_max: 3600     # 最大探测间隔（秒）
+  probe_backoff_multiplier: 2.0
+  min_observation_window: 300  # 最小观察窗口（秒）
+  trial_request_count: 5       # 试用期请求数
+  trial_success_rate: 0.9      # 试用期最低成功率
+  anti_flapping:
+    enabled: true
+    min_observation_window: 300
+    cooldown_period: 300       # 切换冷却期（秒）
+    backoff_multiplier: 2.0    # 退避乘数
+    max_cooldown: 3600
+    consecutive_failure_threshold: 3
+
+# -----------------------------------------------------------------------------
+# 健康检查配置
+# -----------------------------------------------------------------------------
+health_check:
+  interval: 60                 # 健康检查间隔（秒）
+  timeout: 10                  # 健康检查超时（秒）
+  failure_threshold: 3         # 连续失败 N 次标记为 OFFLINE
+  recovery_threshold: 3        # 连续成功 N 次恢复为 ONLINE
+  scoring:
+    weights:
+      accuracy: 0.15
+      latency: 0.15
+      stability: 0.20
+      success_rate: 0.20
+      completeness: 0.10
+      reliability: 0.10
+      timeliness: 0.05
+      reachability: 0.05
+    degraded_score_threshold: 75.0
+    offline_score_threshold: 20.0

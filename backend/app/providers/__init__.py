@@ -11,4 +11,46 @@
 - options      : 期权数据（隐含波动率、看跌/看涨比、最大痛点）
 - macro        : 宏观经济数据（利率、美元指数、流动性）
 - sentiment    : 市场情绪数据（恐惧贪婪指数、社交热度）
+
+核心运行时组件：
+
+- ProviderRegistry : Provider 注册中心（单例）
+- ProviderManager  : 优先级队列 + 请求路由 + Failover
+- HealthMonitor    : 健康检查 + 8 维度评分 + 状态机
+- FailoverEngine   : 自动故障切换 + 恢复探测 + 防抖动
+- HTTPClient       : httpx 异步客户端封装
 """
+
+from app.providers.base import (
+    BaseProvider,
+    ProviderConfig,
+    ProviderRegistry,
+)
+from app.providers.failover import FailoverEngine
+from app.providers.health_monitor import HealthMonitor
+from app.providers.manager import PrioritizedProvider, ProviderManager
+from app.providers.network import HTTPClient, NetworkErrorClassifier
+from app.providers.rate_limiter import (
+    RateLimiterFactory,
+    SlidingWindowRateLimiter,
+    TokenBucketRateLimiter,
+)
+
+__all__ = [
+    # base
+    "BaseProvider",
+    "ProviderConfig",
+    "ProviderRegistry",
+    # network
+    "HTTPClient",
+    "NetworkErrorClassifier",
+    # rate limiter
+    "RateLimiterFactory",
+    "SlidingWindowRateLimiter",
+    "TokenBucketRateLimiter",
+    # runtime components
+    "PrioritizedProvider",
+    "ProviderManager",
+    "HealthMonitor",
+    "FailoverEngine",
+]

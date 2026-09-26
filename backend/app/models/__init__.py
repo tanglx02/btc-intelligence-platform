@@ -9,6 +9,9 @@ from .base import Base, CreatedAtMixin, DataSourceMixin, TimestampMixin, UUIDPri
 
 # Enums
 from .enums import (
+    AlertRuleState,
+    AlertSeverity,
+    AlertStatus,
     BacktestStatus,
     CandleInterval,
     CyclePhase,
@@ -82,6 +85,9 @@ from .portfolio import PortfolioSnapshot, User, UserHolding, UserPlan, UserTrans
 # 系统数据
 from .system import AuditLog, DataQuality, MarketEvent, SyncCheckpoint, SystemJob
 
+# 预警
+from .alert import AlertChannelConfig, AlertDelivery, AlertEvent, AlertRule
+
 __all__ = [
     # Base
     "Base",
@@ -90,6 +96,9 @@ __all__ = [
     "TimestampMixin",
     "UUIDPrimaryKeyMixin",
     # Enums
+    "AlertRuleState",
+    "AlertSeverity",
+    "AlertStatus",
     "BacktestStatus",
     "CandleInterval",
     "CyclePhase",
@@ -172,4 +181,9 @@ __all__ = [
     "MarketEvent",
     "SyncCheckpoint",
     "SystemJob",
+    # Alert
+    "AlertChannelConfig",
+    "AlertDelivery",
+    "AlertEvent",
+    "AlertRule",
 ]

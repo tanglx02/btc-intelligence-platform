@@ -230,3 +230,41 @@ trade_side_enum = SAEnum(
 plan_status_enum = SAEnum(
     PlanStatus, name="plan_status", create_type=False
 )
+
+
+# ---- 预警 ----
+
+class AlertSeverity(str, enum.Enum):
+    """预警严重程度。"""
+    INFO = "INFO"
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+    CRITICAL = "CRITICAL"
+
+
+class AlertStatus(str, enum.Enum):
+    """预警事件状态。"""
+    TRIGGERED = "TRIGGERED"
+    ACKED = "ACKED"
+    RESOLVED = "RESOLVED"
+    SUPPRESSED = "SUPPRESSED"
+
+
+class AlertRuleState(str, enum.Enum):
+    """预警规则状态。"""
+    ACTIVE = "ACTIVE"
+    PAUSED = "PAUSED"
+    ARCHIVED = "ARCHIVED"
+    ERROR = "ERROR"
+
+
+alert_severity_enum = SAEnum(
+    AlertSeverity, name="alert_severity", create_type=False
+)
+alert_status_enum = SAEnum(
+    AlertStatus, name="alert_status", create_type=False
+)
+alert_rule_state_enum = SAEnum(
+    AlertRuleState, name="alert_rule_state", create_type=False
+)

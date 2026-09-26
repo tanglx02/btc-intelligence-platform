@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import math
 from datetime import date, timedelta
-from typing import Any, Optional
+from typing import Any
 
 import polars as pl
 
@@ -46,7 +46,7 @@ def _to_float_series(values: Any) -> list[float]:
 def _dates_of(equity_curve: pl.DataFrame) -> list[date]:
     """提取 equity_curve 的日期列表（Datetime 列自动转 Date）。"""
     col = equity_curve["date"]
-    if col.dtype == pl.Datetime or col.dtype == pl.DateTime:
+    if isinstance(col.dtype, pl.Datetime):
         col = col.dt.date()
     return col.to_list()
 
@@ -86,7 +86,7 @@ def irr_from_equity_curve(
     dates: list[date],
     invested: list[float],
     final_value: float,
-) -> Optional[float]:
+) -> float | None:
     """由累计投入曲线构造现金流并求解 IRR（牛顿法 + 二分兜底）。
 
     现金流约定：投入增加日为负现金流（金额投入），期末最后一日
@@ -113,7 +113,7 @@ def irr_from_equity_curve(
     return solve_irr(flows)
 
 
-def solve_irr(flows: list[tuple[float, float]]) -> Optional[float]:
+def solve_irr(flows: list[tuple[float, float]]) -> float | None:
     """求解不规则时间现金流的 IRR。
 
     Args:
@@ -162,7 +162,7 @@ def solve_irr(flows: list[tuple[float, float]]) -> Optional[float]:
     return None
 
 
-def annualized_return(final_value: float, total_invested: float, days: int) -> Optional[float]:
+def annualized_return(final_value: float, total_invested: float, days: int) -> float | None:
     """简单年化收益率（期末市值 / 总投入，按持有天数年化）。
 
     仅用于无中间现金流场景（如一次性买入基准）；定投请用 IRR。
@@ -212,9 +212,9 @@ def drawdown_episodes(
     """
     episodes: list[dict[str, Any]] = []
     peak = -math.inf
-    peak_date: Optional[date] = None
+    peak_date: date | None = None
     trough = math.inf
-    trough_date: Optional[date] = None
+    trough_date: date | None = None
     in_dd = False
     for d, v in zip(dates, values, strict=False):
         if math.isnan(v):
@@ -262,7 +262,7 @@ def max_drawdown_duration_days(episodes: list[dict[str, Any]]) -> int:
 
 def recovery_times(
     episodes: list[dict[str, Any]], threshold: float = BIG_DRAWDOWN_THRESHOLD
-) -> list[Optional[int]]:
+) -> list[int | None]:
     """各次深度超过 threshold 的回撤的恢复天数列表（未收复为 None）。"""
     return [
         e["recovery_days"] if e["recovered"] else None
@@ -277,7 +277,7 @@ def recovery_times(
 
 def sharpe_ratio(
     daily_rets: list[float], risk_free_rate: float = 0.02
-) -> Optional[float]:
+) -> float | None:
     """年化夏普比率。(mean − rf/365) / std × √365。样本不足返回 None。"""
     rets = [r for r in daily_rets if not math.isnan(r)]
     if len(rets) < 2:
@@ -293,7 +293,7 @@ def sharpe_ratio(
 
 def sortino_ratio(
     daily_rets: list[float], risk_free_rate: float = 0.02
-) -> Optional[float]:
+) -> float | None:
     """年化索提诺比率：分母仅用下行波动（负收益的 RMS）。"""
     rets = [r for r in daily_rets if not math.isnan(r)]
     if len(rets) < 2:
@@ -309,8 +309,8 @@ def sortino_ratio(
 
 
 def calmar_ratio(
-    annual_return_rate: Optional[float], mdd: float
-) -> Optional[float]:
+    annual_return_rate: float | None, mdd: float
+) -> float | None:
     """卡尔马比率 = 年化收益率 / 最大回撤。"""
     if annual_return_rate is None or mdd <= 1e-12:
         return None
@@ -370,8 +370,8 @@ def yearly_returns(dates: list[date], values: list[float]) -> dict[int, float]:
     """
     if not dates:
         return {}
-    by_year: dict[int, tuple[float, float, Optional[float]]] = {}
-    prev_year_end: Optional[float] = None
+    by_year: dict[int, tuple[float, float, float | None]] = {}
+    prev_year_end: float | None = None
     for d, v in zip(dates, values, strict=False):
         if math.isnan(v):
             continue
@@ -395,7 +395,7 @@ def yearly_returns(dates: list[date], values: list[float]) -> dict[int, float]:
 
 def calculate_all(
     equity_curve: pl.DataFrame,
-    trades: Optional[list[Any]] = None,
+    trades: list[Any] | None = None,
     risk_free_rate: float = 0.02,
     initial_capital: float = 0.0,
 ) -> dict[str, Any]:
@@ -442,7 +442,7 @@ def calculate_all(
     irr = irr_from_equity_curve(dates, invested, final_value)
     twrr_rets = twrr_daily_returns(values, invested)
     # TWRR 年化：几何连乘
-    twrr_annual: Optional[float] = None
+    twrr_annual: float | None = None
     valid_twrr = [r for r in twrr_rets if not math.isnan(r)]
     if valid_twrr and days > 0:
         growth = 1.0
@@ -459,8 +459,8 @@ def calculate_all(
     best_year = max(yr.items(), key=lambda kv: kv[1]) if yr else None
     worst_year = min(yr.items(), key=lambda kv: kv[1]) if yr else None
 
-    final_btc: Optional[float] = None
-    avg_cost: Optional[float] = None
+    final_btc: float | None = None
+    avg_cost: float | None = None
     if "btc_amount" in equity_curve.columns:
         btc_series = _to_float_series(equity_curve["btc_amount"].to_list())
         final_btc = btc_series[-1] if btc_series else None
@@ -503,14 +503,17 @@ def calculate_all(
 
 def lump_sum_benchmark(
     dates: list[date], prices: list[float], total_invested: float
-) -> Optional[float]:
+) -> float | None:
     """BTC 一次性买入基准收益率（§4.1 对照指标，DCA 有效性对照，必出）。
 
     同区间首日以等额资金一次性买入并持有至期末。
     """
     if not dates or total_invested <= 0:
         return None
-    valid = [(d, p) for d, p in zip(dates, prices, strict=False) if p and not math.isnan(p) and p > 0]
+    valid = [
+        (d, p) for d, p in zip(dates, prices, strict=False)
+        if p and not math.isnan(p) and p > 0
+    ]
     if len(valid) < 2:
         return None
     first_price = valid[0][1]
@@ -526,3 +529,68 @@ def date_range_days(start: date, end: date) -> int:
 def shift_date(d: date, days: int) -> date:
     """日期偏移辅助（供回放/恢复时间计算复用）。"""
     return d + timedelta(days=days)
+
+
+class BacktestMetrics:
+    """回测绩效指标计算门面（对齐任务契约 §8）。
+
+    以静态方法暴露 :func:`calculate_all` 等核心口径，便于 ``BacktestMetrics.
+    calculate_all(...)`` 直接调用；实现全部委托给本模块的纯函数（无 IO、
+    无随机、相同输入必产生相同输出）。
+    """
+
+    @staticmethod
+    def calculate_all(
+        equity_curve: pl.DataFrame,
+        trades: list[Any] | None = None,
+        risk_free_rate: float = 0.02,
+        initial_capital: float = 0.0,
+    ) -> dict[str, Any]:
+        """计算全部绩效指标（委托 :func:`calculate_all`）。"""
+        return calculate_all(
+            equity_curve, trades=trades, risk_free_rate=risk_free_rate,
+            initial_capital=initial_capital,
+        )
+
+    @staticmethod
+    def max_drawdown(values: list[float]) -> float:
+        """最大回撤（委托 :func:`max_drawdown`）。"""
+        return max_drawdown(values)
+
+    @staticmethod
+    def sharpe_ratio(returns: list[float], risk_free_rate: float = 0.02) -> float | None:
+        """夏普比率（委托 :func:`sharpe_ratio`）。"""
+        return sharpe_ratio(returns, risk_free_rate)
+
+    @staticmethod
+    def lump_sum_benchmark(
+        dates: list[date], prices: list[float], total_invested: float
+    ) -> float | None:
+        """一次性买入基准（委托 :func:`lump_sum_benchmark`）。"""
+        return lump_sum_benchmark(dates, prices, total_invested)
+
+
+__all__ = [
+    "BacktestMetrics",
+    "calculate_all",
+    "solve_irr",
+    "irr_from_equity_curve",
+    "annualized_return",
+    "max_drawdown",
+    "max_drawdown_series",
+    "drawdown_episodes",
+    "max_drawdown_duration_days",
+    "recovery_times",
+    "sharpe_ratio",
+    "sortino_ratio",
+    "calmar_ratio",
+    "trade_statistics",
+    "yearly_returns",
+    "lump_sum_benchmark",
+    "daily_returns_from_values",
+    "twrr_daily_returns",
+    "date_range_days",
+    "shift_date",
+    "DAYS_PER_YEAR",
+    "BIG_DRAWDOWN_THRESHOLD",
+]

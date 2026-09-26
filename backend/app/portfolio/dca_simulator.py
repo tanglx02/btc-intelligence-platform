@@ -22,8 +22,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date, timedelta
-from decimal import Decimal, ROUND_HALF_UP
-from typing import Any, Optional
+from decimal import ROUND_HALF_UP, Decimal
+from typing import Any
 
 import polars as pl
 
@@ -68,19 +68,20 @@ class DCAConfig:
     periodic_amount: Decimal = Decimal("0")      # 每期基础投入
     frequency: str = "MONTHLY"                   # DAILY/WEEKLY/BIWEEKLY/MONTHLY
     start_date: date = field(default_factory=date.today)
-    end_date: Optional[date] = None
-    strategy: str = "FIXED"                      # FIXED/DIP_BUY/DRAWDOWN_BUY/VALUATION_BUY/RISK_ADJUSTED/CUSTOM
-    rules: Optional[list[Rule]] = None           # CUSTOM 策略规则
+    end_date: date | None = None
+    # FIXED/DIP_BUY/DRAWDOWN_BUY/VALUATION_BUY/RISK_ADJUSTED/CUSTOM
+    strategy: str = "FIXED"
+    rules: list[Rule] | None = None           # CUSTOM 策略规则
     fee_rate: Decimal = Decimal("0.001")         # 手续费率
     currency: str = "CNY"                        # 计价货币
     dca_day: int = 1                             # 每月第 N 日 / 每周第 N 天
-    max_single_buy: Optional[Decimal] = None     # 单次投入上限（约束终审）
+    max_single_buy: Decimal | None = None     # 单次投入上限（约束终审）
     cash_reserve: Decimal = Decimal("0")         # 现金储备下限
     drawdown_window: int = 90                    # DRAWDOWN_BUY 的近期高点窗口（天）
     # 策略参数覆盖
-    dip_gradient: Optional[list[tuple[Decimal, Decimal]]] = None
-    risk_multipliers: Optional[dict[str, Decimal]] = None
-    valuation_gradient: Optional[list[tuple[float, Decimal]]] = None
+    dip_gradient: list[tuple[Decimal, Decimal]] | None = None
+    risk_multipliers: dict[str, Decimal] | None = None
+    valuation_gradient: list[tuple[float, Decimal]] | None = None
 
     def __post_init__(self) -> None:
         self.frequency = self.frequency.upper()
@@ -115,10 +116,10 @@ class SimulationResult:
     final_btc: Decimal
     final_value: Decimal
     avg_cost: Decimal
-    total_return: Optional[Decimal]           # 总收益率（小数口径）
-    annualized_return: Optional[Decimal]      # 资金加权 IRR
+    total_return: Decimal | None           # 总收益率（小数口径）
+    annualized_return: Decimal | None      # 资金加权 IRR
     max_drawdown: Decimal
-    sharpe_ratio: Optional[float]
+    sharpe_ratio: float | None
     transactions: list[SimTransaction]
     equity_curve: pl.DataFrame                # date, invested, btc_amount, value, avg_cost, price
     total_fees: Decimal = Decimal("0")
@@ -136,15 +137,15 @@ class DCASimulator:
         print(result.final_value, result.annualized_return)
     """
 
-    def __init__(self, rule_engine: Optional[RuleEngine] = None):
+    def __init__(self, rule_engine: RuleEngine | None = None):
         self._engine = rule_engine or RuleEngine()
 
     async def simulate(
         self,
         config: DCAConfig,
         price_data: pl.DataFrame,
-        indicators: Optional[dict[str, pl.DataFrame]] = None,
-        engine_states: Optional[pl.DataFrame] = None,
+        indicators: dict[str, pl.DataFrame] | None = None,
+        engine_states: pl.DataFrame | None = None,
     ) -> SimulationResult:
         """运行定投模拟。
 
@@ -166,7 +167,6 @@ class DCASimulator:
         df = self._normalize_price(price_data)
         dates = df["date"].to_list()
         prices = [Decimal(str(p)) for p in df["close"].to_list()]
-        date_to_idx = {d: i for i, d in enumerate(dates)}
         if not dates:
             return self._empty_result(config)
 
@@ -285,7 +285,7 @@ class DCASimulator:
                 df = df.rename({"timestamp": "date"})
             else:
                 raise ValueError("price_data 须含 date/time/timestamp 列")
-        if df["date"].dtype in (pl.Datetime, pl.DateTime):
+        if isinstance(df["date"].dtype, pl.Datetime):
             df = df.with_columns(pl.col("date").dt.date())
         if "close" not in df.columns:
             raise ValueError("price_data 须含 close 列")
@@ -343,10 +343,10 @@ class DCASimulator:
 
     @staticmethod
     def _build_indicator_lookup(
-        indicators: Optional[dict[str, pl.DataFrame]],
-    ) -> dict[str, dict[date, tuple[Optional[float], Optional[float]]]]:
+        indicators: dict[str, pl.DataFrame] | None,
+    ) -> dict[str, dict[date, tuple[float | None, float | None]]]:
         """指标 df -> {name: {date: (value, percentile)}}。"""
-        lookup: dict[str, dict[date, tuple[Optional[float], Optional[float]]]] = {}
+        lookup: dict[str, dict[date, tuple[float | None, float | None]]] = {}
         if not indicators:
             return lookup
         for name, df in indicators.items():
@@ -356,10 +356,10 @@ class DCASimulator:
                     d = d.rename({"time": "date"})
                 else:
                     continue
-            if d["date"].dtype in (pl.Datetime, pl.DateTime):
+            if isinstance(d["date"].dtype, pl.Datetime):
                 d = d.with_columns(pl.col("date").dt.date())
             has_pct = "percentile" in d.columns
-            per: dict[date, tuple[Optional[float], Optional[float]]] = {}
+            per: dict[date, tuple[float | None, float | None]] = {}
             for row in d.iter_rows(named=True):
                 val = row.get("value")
                 pct = row.get("percentile") if has_pct else None
@@ -372,7 +372,7 @@ class DCASimulator:
 
     @staticmethod
     def _build_state_lookup(
-        engine_states: Optional[pl.DataFrame],
+        engine_states: pl.DataFrame | None,
     ) -> dict[date, dict[str, Any]]:
         """引擎状态 df -> {date: {risk_level, cycle_stage, ...}}。"""
         lookup: dict[date, dict[str, Any]] = {}
@@ -384,7 +384,7 @@ class DCASimulator:
                 d = d.rename({"time": "date"})
             else:
                 return lookup
-        if d["date"].dtype in (pl.Datetime, pl.DateTime):
+        if isinstance(d["date"].dtype, pl.Datetime):
             d = d.with_columns(pl.col("date").dt.date())
         for row in d.iter_rows(named=True):
             lookup[row["date"]] = {k: v for k, v in row.items() if k != "date"}
@@ -400,7 +400,7 @@ class DCASimulator:
         prices: list[Decimal],
         df: pl.DataFrame,
         config: DCAConfig,
-        ind_lookup: dict[str, dict[date, tuple[Optional[float], Optional[float]]]],
+        ind_lookup: dict[str, dict[date, tuple[float | None, float | None]]],
         state_lookup: dict[date, dict[str, Any]],
         cum_invested: Decimal,
         cash_balance: Decimal,
@@ -421,11 +421,13 @@ class DCASimulator:
             price=price,
             ath=ath,
             distance_from_ath=(
-                distance_from_ath.quantize(Decimal("0.000001")) if distance_from_ath is not None else None
+                distance_from_ath.quantize(Decimal("0.000001"))
+                if distance_from_ath is not None else None
             ),
             recent_high=recent_high,
             drawdown_from_recent=(
-                drawdown_recent.quantize(Decimal("0.000001")) if drawdown_recent is not None else None
+                drawdown_recent.quantize(Decimal("0.000001"))
+                if drawdown_recent is not None else None
             ),
             day_of_week=d.isoweekday(),
             day_of_month=d.day,
@@ -464,8 +466,8 @@ class DCASimulator:
 
     @staticmethod
     def _pit_lookup(
-        per: dict[date, tuple[Optional[float], Optional[float]]], d: date
-    ) -> tuple[Optional[float], Optional[float]]:
+        per: dict[date, tuple[float | None, float | None]], d: date
+    ) -> tuple[float | None, float | None]:
         """Point-in-Time 查找：取 date ≤ d 的最新值。"""
         if d in per:
             return per[d]
@@ -475,7 +477,7 @@ class DCASimulator:
         return per[max(candidates)]
 
     @staticmethod
-    def _pit_state(state_lookup: dict[date, dict[str, Any]], d: date) -> Optional[dict[str, Any]]:
+    def _pit_state(state_lookup: dict[date, dict[str, Any]], d: date) -> dict[str, Any] | None:
         """Point-in-Time 引擎状态查找。"""
         if d in state_lookup:
             return state_lookup[d]

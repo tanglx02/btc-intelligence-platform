@@ -20,7 +20,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Optional, Protocol
+from typing import Any, Protocol
 
 # 风险等级有序枚举（用于 gte/lte 比较）
 RISK_ORDER: dict[str, int] = {
@@ -59,32 +59,32 @@ class RuleContext:
     """
 
     # 价格
-    price: Optional[Decimal] = None
-    ath: Optional[Decimal] = None                 # 历史最高价
-    distance_from_ath: Optional[Decimal] = None   # 距 ATH 百分比（负数，如 -0.30）
-    recent_high: Optional[Decimal] = None         # 近 N 日高点
-    drawdown_from_recent: Optional[Decimal] = None  # 距近期高点回撤（负数）
+    price: Decimal | None = None
+    ath: Decimal | None = None                 # 历史最高价
+    distance_from_ath: Decimal | None = None   # 距 ATH 百分比（负数，如 -0.30）
+    recent_high: Decimal | None = None         # 近 N 日高点
+    drawdown_from_recent: Decimal | None = None  # 距近期高点回撤（负数）
     # 技术指标
-    ma: dict[str, Optional[Decimal]] = field(default_factory=dict)  # {"sma200d": ...}
-    indicators: dict[str, Optional[float]] = field(default_factory=dict)  # {"mvrv": 0.8}
-    indicator_percentiles: dict[str, Optional[float]] = field(default_factory=dict)
-    rsi: Optional[float] = None
-    nupl: Optional[float] = None
-    mvrv: Optional[float] = None
-    funding_annualized: Optional[float] = None
+    ma: dict[str, Decimal | None] = field(default_factory=dict)  # {"sma200d": ...}
+    indicators: dict[str, float | None] = field(default_factory=dict)  # {"mvrv": 0.8}
+    indicator_percentiles: dict[str, float | None] = field(default_factory=dict)
+    rsi: float | None = None
+    nupl: float | None = None
+    mvrv: float | None = None
+    funding_annualized: float | None = None
     # 引擎状态
-    risk_level: Optional[str] = None
-    valuation_state: Optional[str] = None
-    cycle_stage: Optional[str] = None
-    regime_label: Optional[str] = None
+    risk_level: str | None = None
+    valuation_state: str | None = None
+    cycle_stage: str | None = None
+    regime_label: str | None = None
     # 时间
-    day_of_week: Optional[int] = None    # 1=周一 ... 7=周日（ISO）
-    day_of_month: Optional[int] = None
-    date_iso: Optional[str] = None       # "2026-01-01"
+    day_of_week: int | None = None    # 1=周一 ... 7=周日（ISO）
+    day_of_month: int | None = None
+    date_iso: str | None = None       # "2026-01-01"
     # 计划自身状态
-    total_invested: Optional[Decimal] = None
-    cash_balance: Optional[Decimal] = None
-    days_since_last_invest: Optional[int] = None
+    total_invested: Decimal | None = None
+    cash_balance: Decimal | None = None
+    days_since_last_invest: int | None = None
     # 数据可用性：字段名 -> 是否 STALE(≥24h)/缺失（True 表示不可用）
     stale_fields: set[str] = field(default_factory=set)
 
@@ -111,8 +111,8 @@ class Condition(Protocol):
     def explain(self) -> str: ...
 
 
-def _cmp_decimal(value: Optional[Decimal], lte: Optional[Decimal], gt: Optional[Decimal],
-                 gte: Optional[Decimal], lt: Optional[Decimal]) -> ConditionResult:
+def _cmp_decimal(value: Decimal | None, lte: Decimal | None, gt: Decimal | None,
+                 gte: Decimal | None, lt: Decimal | None) -> ConditionResult:
     """通用数值区间比较（None 值返回 UNKNOWN）。"""
     if value is None:
         return ConditionResult.UNKNOWN
@@ -128,8 +128,8 @@ def _cmp_decimal(value: Optional[Decimal], lte: Optional[Decimal], gt: Optional[
     return ConditionResult.TRUE
 
 
-def _cmp_float(value: Optional[float], lte: Optional[float], gt: Optional[float],
-               gte: Optional[float], lt: Optional[float]) -> ConditionResult:
+def _cmp_float(value: float | None, lte: float | None, gt: float | None,
+               gte: float | None, lt: float | None) -> ConditionResult:
     """通用浮点区间比较（None 返回 UNKNOWN）。"""
     if value is None:
         return ConditionResult.UNKNOWN
@@ -179,8 +179,8 @@ class DistanceFromAthBelow(Condition):
     distance_from_ath 为负数（如 -0.30 表示回撤 30%）。默认 lte=-X。
     """
 
-    lte: Optional[Decimal] = None
-    gt: Optional[Decimal] = None
+    lte: Decimal | None = None
+    gt: Decimal | None = None
 
     def evaluate(self, ctx: RuleContext) -> ConditionResult:
         val = ctx.value_or_none("distance_from_ath")
@@ -214,12 +214,12 @@ class IndicatorValue(Condition):
     """indicator_value：指标原始值区间比较（如 mvrv_below / rsi_below / nupl_below）。"""
 
     code: str
-    lte: Optional[float] = None
-    gt: Optional[float] = None
-    gte: Optional[float] = None
-    lt: Optional[float] = None
+    lte: float | None = None
+    gt: float | None = None
+    gte: float | None = None
+    lt: float | None = None
 
-    def _resolve(self, ctx: RuleContext) -> Optional[float]:
+    def _resolve(self, ctx: RuleContext) -> float | None:
         if not ctx.is_available(f"indicators.{self.code}"):
             return None
         # 优先从 indicators dict 取，回退到同名顶层字段（rsi/nupl/mvrv）
@@ -243,10 +243,10 @@ class IndicatorPercentile(Condition):
     """indicator_percentile：指标历史分位区间比较（0-100）。"""
 
     code: str
-    lte: Optional[float] = None
-    gte: Optional[float] = None
-    gt: Optional[float] = None
-    lt: Optional[float] = None
+    lte: float | None = None
+    gte: float | None = None
+    gt: float | None = None
+    lt: float | None = None
 
     def evaluate(self, ctx: RuleContext) -> ConditionResult:
         if not ctx.is_available(f"percentiles.{self.code}"):
@@ -264,9 +264,9 @@ class IndicatorPercentile(Condition):
 class RiskLevelCondition(Condition):
     """risk_level：有序枚举比较（gte/lte/in）。"""
 
-    gte: Optional[str] = None
-    lte: Optional[str] = None
-    in_levels: Optional[list[str]] = None
+    gte: str | None = None
+    lte: str | None = None
+    in_levels: list[str] | None = None
 
     def evaluate(self, ctx: RuleContext) -> ConditionResult:
         level = ctx.value_or_none("risk_level")
@@ -346,8 +346,8 @@ class DayOfMonth(Condition):
 class DateRange(Condition):
     """date_range：日期区间（ISO 字符串闭区间比较）。"""
 
-    start: Optional[str] = None
-    end: Optional[str] = None
+    start: str | None = None
+    end: str | None = None
 
     def evaluate(self, ctx: RuleContext) -> ConditionResult:
         d = ctx.value_or_none("date_iso")
@@ -443,10 +443,10 @@ class Action:
     """
 
     kind: ActionKind
-    factor: Optional[Decimal] = None
-    value: Optional[Decimal] = None
-    days: Optional[int] = None
-    message: Optional[str] = None
+    factor: Decimal | None = None
+    value: Decimal | None = None
+    days: int | None = None
+    message: str | None = None
 
     def explain(self) -> str:
         if self.kind == ActionKind.MULTIPLY:
@@ -500,7 +500,7 @@ class Rule:
     condition: Condition
     action: Action
     enabled: bool = True
-    description: Optional[str] = None  # 普通用户解释文案
+    description: str | None = None  # 普通用户解释文案
 
 
 @dataclass
@@ -508,10 +508,10 @@ class RuleAction:
     """规则引擎求值结果。"""
 
     amount_multiplier: Decimal = Decimal("1")  # 累计乘数（skip 时为 0）
-    fixed_amount: Optional[Decimal] = None      # 命中的固定金额（覆盖乘数）
+    fixed_amount: Decimal | None = None      # 命中的固定金额（覆盖乘数）
     extra_buy_amount: Decimal = Decimal("0")    # 额外追加金额
     skip: bool = False
-    pause_days: Optional[int] = None
+    pause_days: int | None = None
     triggered_rules: list[str] = field(default_factory=list)   # 命中规则名（进决策日志）
     notifications: list[str] = field(default_factory=list)      # 提醒文案
     conflict_resolved: bool = False                             # 是否发生同优先级冲突裁决
@@ -677,8 +677,14 @@ def _build_price_vs_ma(params: dict[str, Any]) -> Condition:
             if price is None or ma_val is None:
                 return ConditionResult.UNKNOWN
             if op == "below":
-                return ConditionResult.TRUE if Decimal(price) < Decimal(ma_val) else ConditionResult.FALSE
-            return ConditionResult.TRUE if Decimal(price) > Decimal(ma_val) else ConditionResult.FALSE
+                return (
+                    ConditionResult.TRUE if Decimal(price) < Decimal(ma_val)
+                    else ConditionResult.FALSE
+                )
+            return (
+                ConditionResult.TRUE if Decimal(price) > Decimal(ma_val)
+                else ConditionResult.FALSE
+            )
 
         def explain(self) -> str:
             return f"价格{'低于' if op == 'below' else '高于'} {ma_key}"
@@ -704,7 +710,9 @@ def build_condition(spec: dict[str, Any], depth: int = 1) -> Condition:
         if logic in spec:
             children_spec = spec[logic]
             if logic == "not":
-                children_spec = [children_spec] if isinstance(children_spec, dict) else children_spec
+                children_spec = (
+                    [children_spec] if isinstance(children_spec, dict) else children_spec
+                )
             children = [build_condition(c, depth + 1) for c in children_spec]
             return CompositeCondition(logic, children, depth)
     op = spec.get("op")

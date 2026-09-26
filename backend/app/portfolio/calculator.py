@@ -14,8 +14,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from decimal import Decimal, ROUND_HALF_UP
-from typing import Any, Optional, Protocol
+from decimal import ROUND_HALF_UP, Decimal
+from typing import Any, Protocol
 
 from app.backtest import metrics as bt_metrics
 
@@ -75,16 +75,16 @@ class Performance:
     """绩效指标结果（§2.3 实时估值）。"""
 
     total_invested: Decimal = _ZERO
-    current_value: Optional[Decimal] = None       # 当前市值（无价格时 None）
-    unrealized_pnl: Optional[Decimal] = None      # 浮动盈亏
-    unrealized_pnl_pct: Optional[Decimal] = None  # 浮动盈亏率（小数口径）
+    current_value: Decimal | None = None       # 当前市值（无价格时 None）
+    unrealized_pnl: Decimal | None = None      # 浮动盈亏
+    unrealized_pnl_pct: Decimal | None = None  # 浮动盈亏率（小数口径）
     realized_pnl: Decimal = _ZERO
-    pnl: Optional[Decimal] = None                 # 累计收益 = 浮动 + 已实现
-    pnl_percentage: Optional[Decimal] = None      # 收益率（小数口径）
+    pnl: Decimal | None = None                 # 累计收益 = 浮动 + 已实现
+    pnl_percentage: Decimal | None = None      # 收益率（小数口径）
     avg_cost: Decimal = _ZERO
     btc_balance: Decimal = _ZERO
-    max_drawdown: Optional[Decimal] = None        # 基于快照的最大回撤（小数口径）
-    current_drawdown: Optional[Decimal] = None    # 当前回撤（小数口径）
+    max_drawdown: Decimal | None = None        # 基于快照的最大回撤（小数口径）
+    current_drawdown: Decimal | None = None    # 当前回撤（小数口径）
     yearly_returns: dict[str, float] = field(default_factory=dict)
 
 
@@ -188,8 +188,8 @@ class PortfolioCalculator:
     @staticmethod
     def calculate_performance(
         transactions: list[TransactionLike],
-        current_price: Optional[Decimal] = None,
-        snapshots: Optional[list[Any]] = None,
+        current_price: Decimal | None = None,
+        snapshots: list[Any] | None = None,
     ) -> Performance:
         """计算绩效指标（持仓 + 估值 + 回撤）。
 

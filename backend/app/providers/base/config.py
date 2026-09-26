@@ -112,10 +112,12 @@ class ProviderConfig:
 class ConfigLoader:
     """Provider 配置加载器。
 
-    支持从 YAML 文件加载配置，并通过 ${ENV_VAR} 语法解析环境变量。
+    支持从 YAML 文件加载配置，并通过环境变量引用语法解析敏感信息：
+    - ``${VAR_NAME}``              — 直接取环境变量，未设置时替换为空字符串
+    - ``${VAR_NAME:-FALLBACK_VAR}`` — 优先取 VAR_NAME，未设置时回退取 FALLBACK_VAR
     """
 
-    ENV_PATTERN = re.compile(r"\$\{(\w+)\}")
+    ENV_PATTERN = re.compile(r"\$\{(\w+)(?::-([\w:.-]*))?\}")
 
     @classmethod
     def load(cls, config_path: str | Path = "config/providers.yaml") -> dict[str, Any]:
@@ -137,14 +139,19 @@ class ConfigLoader:
 
     @classmethod
     def _resolve_env_vars(cls, text: str) -> str:
-        """将 ${VAR_NAME} 替换为环境变量值。
+        """将 ${VAR_NAME} / ${VAR_NAME:-FALLBACK} 替换为环境变量值。
 
         未设置的环境变量替换为空字符串（不抛异常）。
         """
 
         def replacer(match: re.Match) -> str:
             var_name = match.group(1)
-            return os.environ.get(var_name, "")
+            fallback = match.group(2)
+            value = os.environ.get(var_name, "")
+            if not value and fallback:
+                # 回退支持链式引用（如 ${A:-B}，B 本身也可为环境变量名）
+                value = os.environ.get(fallback, "")
+            return value
 
         return cls.ENV_PATTERN.sub(replacer, text)
 

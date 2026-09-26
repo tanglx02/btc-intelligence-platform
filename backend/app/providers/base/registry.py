@@ -378,8 +378,8 @@ class ProviderRegistry:
                     and attr is not BaseProvider
                     and not getattr(attr, "__abstractmethods__", None)
                 ):
-                    # 推断 Provider 名称（类名转 snake_case）
-                    provider_name = self._class_to_snake_case(attr_name)
+                    # 显式命名优先（类属性 provider_key），否则类名转 snake_case
+                    provider_name = getattr(attr, "provider_key", "") or self._class_to_snake_case(attr_name)
                     # 移除 _provider 后缀（如果有）
                     if provider_name.endswith("_provider"):
                         provider_name = provider_name[:-9]
@@ -387,6 +387,12 @@ class ProviderRegistry:
                     self.register_class(provider_name, attr)
                     discovered_count += 1
                     logger.debug(f"Discovered provider class: {attr_name} -> {provider_name}")
+
+                    # 别名注册（如 FREDProvider 的 snake_case 推导为 f_r_e_d，
+                    # 与 YAML 配置 key 不一致时通过 aliases 兼容）
+                    for alias in getattr(attr, "aliases", ()) or ():
+                        self.register_class(alias, attr)
+                        logger.debug(f"Discovered provider alias: {attr_name} -> {alias}")
 
         logger.info(f"Auto-discovered {discovered_count} provider classes from '{package_path}'")
 

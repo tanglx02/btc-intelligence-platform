@@ -225,6 +225,27 @@ class ProviderService:
             logger.warning(f"Redis unavailable, business cache disabled: {e}")
             self._redis = None
 
+    # ---- 底层组件访问 ----
+
+    @property
+    def manager(self) -> ProviderManager:
+        """底层 ProviderManager。
+
+        历史同步、补洞等场景需要 ``FetchResult.raw_response`` 以写入 Raw 表，
+        而 ``ServiceResult`` 不携带原始响应，因此开放只读访问入口。
+        """
+        return self._manager
+
+    @property
+    def registry(self) -> ProviderRegistry:
+        """底层 Provider 注册中心（只读）。"""
+        return self._registry
+
+    @property
+    def health_monitor(self) -> HealthMonitor:
+        """底层健康监控器（只读）。"""
+        return self._health_monitor
+
     # ---- 核心数据获取 ----
 
     async def get_data(

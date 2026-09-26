@@ -1,0 +1,5 @@
+# pnpm 配置（pnpm 11+ 起，构建脚本白名单统一使用 allowBuilds 映射）
+# 显式批准需要运行构建脚本的依赖，避免安装时的 ERR_PNPM_IGNORED_BUILDS
+allowBuilds:
+  sharp: true
+  unrs-resolver: true

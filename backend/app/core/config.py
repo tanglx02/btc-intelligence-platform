@@ -1,0 +1,96 @@
+"""应用配置中心。
+
+基于 pydantic-settings，从环境变量 / .env 文件加载配置。
+所有敏感信息（数据库密码、API Key）均通过环境变量注入，禁止硬编码。
+
+约定：环境变量名与字段名大小写不敏感匹配，嵌套配置以前缀区分，
+例如 POSTGRES_HOST、REDIS_URL、PROVIDER_COINGLASS_KEY 等。
+"""
+
+from functools import lru_cache
+
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    """全局应用配置（占位骨架，字段随功能迭代补充）。"""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
+    )
+
+    # ---- 应用基础配置 ----
+    app_name: str = Field(default="BTC Intelligence Platform")
+    app_env: str = Field(default="development", description="运行环境: development / staging / production")
+    debug: bool = Field(default=True)
+    api_v1_prefix: str = Field(default="/api/v1")
+    host: str = Field(default="0.0.0.0")
+    port: int = Field(default=8000)
+
+    # ---- 安全 / 鉴权 ----
+    secret_key: str = Field(default="change-me-in-production")
+    access_token_expire_minutes: int = Field(default=60 * 24)
+    algorithm: str = Field(default="HS256")
+
+    # ---- 数据库 (PostgreSQL + TimescaleDB) ----
+    postgres_host: str = Field(default="localhost")
+    postgres_port: int = Field(default=5432)
+    postgres_db: str = Field(default="btc_platform")
+    postgres_user: str = Field(default="btc_admin")
+    postgres_password: str = Field(default="changeme")
+
+    # ---- 缓存 (Redis) ----
+    redis_host: str = Field(default="localhost")
+    redis_port: int = Field(default=6379)
+    redis_password: str = Field(default="changeme")
+    redis_db: int = Field(default=0)
+
+    # ---- 外部数据源 API Keys（占位，按需填充）----
+    provider_binance_key: str | None = None
+    provider_coinbase_key: str | None = None
+    provider_coinglass_key: str | None = None
+    provider_glassnode_key: str | None = None
+    provider_cryptoquant_key: str | None = None
+    provider_farside_key: str | None = None
+    provider_deribit_key: str | None = None
+    provider_fred_key: str | None = None
+    provider_alternative_key: str | None = None
+
+    # ---- 调度器 ----
+    scheduler_enabled: bool = Field(default=True)
+    scheduler_timezone: str = Field(default="Asia/Shanghai")
+
+    # ---- 派生属性：连接 URL ----
+    @property
+    def database_url(self) -> str:
+        """异步 SQLAlchemy 数据库连接 URL（asyncpg 驱动）。"""
+        return (
+            f"postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}"
+            f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
+        )
+
+    @property
+    def database_url_sync(self) -> str:
+        """同步数据库连接 URL，供 Alembic 迁移使用。"""
+        return (
+            f"postgresql://{self.postgres_user}:{self.postgres_password}"
+            f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
+        )
+
+    @property
+    def redis_url(self) -> str:
+        """Redis 连接 URL。"""
+        return f"redis://:{self.redis_password}@{self.redis_host}:{self.redis_port}/{self.redis_db}"
+
+
+@lru_cache
+def get_settings() -> Settings:
+    """返回带缓存的全局配置单例。"""
+    return Settings()
+
+
+settings = get_settings()

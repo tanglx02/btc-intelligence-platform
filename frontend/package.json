@@ -1,0 +1,33 @@
+{
+  "name": "btc-platform-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "BTC 全市场智能研究平台 - 前端",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "next": "15.1.6",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "echarts": "^5.6.0",
+    "lightweight-charts": "^4.2.3",
+    "zustand": "^5.0.3",
+    "axios": "^1.7.9"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "@types/node": "^22.10.7",
+    "@types/react": "^19.0.7",
+    "@types/react-dom": "^19.0.3",
+    "tailwindcss": "^3.4.17",
+    "postcss": "^8.5.1",
+    "autoprefixer": "^10.4.20",
+    "@eslint/eslintrc": "^3.2.0",
+    "eslint": "^9.18.0",
+    "eslint-config-next": "15.1.6"
+  }
+}

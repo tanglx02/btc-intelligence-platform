@@ -2,10 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
-/* 全局设计 token 与基础样式将在前端设计阶段补充 */
+/* ------------------------------------------------------------------------ */
+/* 暗色金融终端主题                                                           */
+/* bg #0d1117 · 卡片 #161b22 · 边框 #30363d · 主色蓝 #58a6ff                  */
+/* ------------------------------------------------------------------------ */
+
 :root {
-  --background: #0a0a0a;
-  --foreground: #ededed;
+  --bg: #0d1117;
+  --bg-raised: #161b22;
+  --bg-hover: #1c2128;
+  --line: #30363d;
+  --fg: #e6edf3;
+  --muted: #8b949e;
+  --accent: #58a6ff;
+  --up: #3fb950;
+  --down: #f85149;
+  --warn: #d29922;
+  color-scheme: dark;
 }
 
 html,
@@ -15,6 +28,71 @@ body {
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
+  color: var(--fg);
+  background-color: var(--bg);
+  font-feature-settings: "tnum" 0;
+}
+
+/* 氛围层：双径向渐变 + 极淡网格，营造终端纵深而不喧宾夺主 */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background:
+    radial-gradient(1100px 520px at 85% -10%, rgba(88, 166, 255, 0.07), transparent 60%),
+    radial-gradient(900px 480px at -10% 110%, rgba(63, 185, 80, 0.05), transparent 60%),
+    radial-gradient(700px 380px at 50% 120%, rgba(248, 81, 73, 0.03), transparent 65%);
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.35;
+  background-image:
+    linear-gradient(rgba(48, 54, 61, 0.14) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(48, 54, 61, 0.14) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, black 30%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, black 30%, transparent 100%);
+}
+
+::selection {
+  background: rgba(88, 166, 255, 0.28);
+}
+
+/* 细滚动条 */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3d444d;
+}
+
+/* 键盘可达性 */
+:focus-visible {
+  outline: 2px solid rgba(88, 166, 255, 0.55);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* 数字等宽（金融数据可读性） */
+.font-mono {
+  font-variant-numeric: tabular-nums;
 }

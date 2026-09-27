@@ -29,7 +29,7 @@ from app.providers.base.types import (
     ProviderMetadata,
     QualityStatus,
 )
-from app.utils.datetime_utils import utcnow
+from app.utils.datetime_utils import as_naive_utc, utcnow
 
 # 指标 key -> (indicator code, 单位, 频率说明)
 _INDICATORS: dict[str, tuple[str, str, str]] = {
@@ -188,6 +188,8 @@ class WorldBankProvider(BaseMacroProvider):
         # 取 <= date 的最后一个观测（date 为 None 时取最新）
         chosen = points[-1]
         if date is not None:
+            # date 可能来自 Service/引擎（aware UTC）；observation_date 为 naive UTC，归一化后比较
+            date = as_naive_utc(date)
             eligible = [p for p in points if p["observation_date"] <= date]
             if not eligible:
                 return FetchResult(

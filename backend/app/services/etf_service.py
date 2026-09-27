@@ -9,7 +9,7 @@
 ETF 数据按美股交易日更新（含周末停更），缓存 TTL 相对较长。
 """
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -151,7 +151,11 @@ class ETFService(CategoryServiceBase):
                 row = (await session.execute(stmt)).scalar_one_or_none()
                 if row is None:
                     return None
-                age = datetime.now(tz=row.observation_time.tzinfo) - row.observation_time
+                obs = row.observation_time
+                if obs.tzinfo is None:
+                    # DB 返回 naive（TIMESTAMP 列/驱动差异）时按 UTC 补时区
+                    obs = obs.replace(tzinfo=UTC)
+                age = datetime.now(tz=obs.tzinfo) - obs
                 if date is None and age > timedelta(seconds=_LOCAL_MAX_AGE):
                     return None
                 return self._flow_row_to_dict(row)
@@ -171,7 +175,7 @@ class ETFService(CategoryServiceBase):
                 if latest is None:
                     return None
                 if date is None and (
-                    datetime.now(tz=latest.tzinfo) - latest
+                    datetime.now(tz=latest.tzinfo or UTC) - (latest if latest.tzinfo else latest.replace(tzinfo=UTC))
                 ) > timedelta(seconds=_LOCAL_MAX_AGE):
                     return None
                 stmt = select(EtfHolding).where(EtfHolding.observation_time == latest)

@@ -24,7 +24,7 @@ from app.providers.base.types import (
     ProviderMetadata,
     QualityStatus,
 )
-from app.utils.datetime_utils import utcnow
+from app.utils.datetime_utils import as_naive_utc, utcnow
 
 # value_classification -> 标准情绪标签
 _LABEL_MAP = {
@@ -128,6 +128,9 @@ class AlternativeMeProvider(BaseSentimentProvider):
         points = result.data
         chosen = points[-1]
         if date is not None:
+            # date 可能来自 Service/引擎（aware UTC）；内部 timestamp 为 naive UTC，
+            # 比较前归一化避免 naive/aware 混算 TypeError
+            date = as_naive_utc(date)
             eligible = [
                 p for p in points
                 if p["timestamp"] is not None and p["timestamp"] <= date
@@ -141,7 +144,7 @@ class AlternativeMeProvider(BaseSentimentProvider):
                 )
             chosen = eligible[-1]
 
-        obs_time = chosen["timestamp"] or utcnow()
+        obs_time = chosen["timestamp"] or as_naive_utc(utcnow())
         return FetchResult(
             success=True,
             data=sentiment_payload(

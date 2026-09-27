@@ -7,7 +7,7 @@
 4. 统一 ServiceResult 返回
 """
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -152,7 +152,12 @@ class SentimentService(CategoryServiceBase):
                 row = (await session.execute(stmt)).scalar_one_or_none()
                 if row is None:
                     return None
-                age = datetime.now(tz=row.observation_time.tzinfo) - row.observation_time
+                obs = row.observation_time
+                if obs.tzinfo is None:
+                    # DB 返回 naive（TIMESTAMP 列/驱动差异）时按 UTC 补时区，
+                    # 避免 aware/naive 混算或本地时区偏移导致陈旧度误判
+                    obs = obs.replace(tzinfo=UTC)
+                age = datetime.now(tz=obs.tzinfo) - obs
                 if date is None and age > timedelta(seconds=_LOCAL_MAX_AGE):
                     return None
                 return self._row_to_dict(row, "fear_greed")

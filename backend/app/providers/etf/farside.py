@@ -24,7 +24,7 @@ from app.providers.base.types import (
     ProviderMetadata,
     QualityStatus,
 )
-from app.utils.datetime_utils import utcnow
+from app.utils.datetime_utils import as_naive_utc, utcnow
 
 # 页面路径（相对 base_url https://farside.co.uk）
 _BTC_PAGE = "/btc/"
@@ -211,7 +211,8 @@ class FarsideProvider(BaseETFProvider):
             return None
         if date is None:
             return rows[-1]
-        target = date.replace(hour=0, minute=0, second=0, microsecond=0)
+        # date 可能来自 Service/引擎（aware UTC）；row["date"] 为 naive UTC，归一化后比较
+        target = as_naive_utc(date).replace(hour=0, minute=0, second=0, microsecond=0)
         matched = None
         for row in rows:
             if row["date"] <= target:
@@ -338,8 +339,9 @@ class FarsideProvider(BaseETFProvider):
                 provider_name=self.name,
             )
 
-        start_day = start.replace(hour=0, minute=0, second=0, microsecond=0)
-        end_day = end.replace(hour=0, minute=0, second=0, microsecond=0)
+        # start/end 可能来自 Service/引擎（aware UTC）；row["date"] 为 naive UTC，归一化后比较
+        start_day = as_naive_utc(start).replace(hour=0, minute=0, second=0, microsecond=0)
+        end_day = as_naive_utc(end).replace(hour=0, minute=0, second=0, microsecond=0)
 
         # 累计基线：start 之前所有日的净流入之和
         baseline = sum(r["total"] for r in rows if r["date"] < start_day)

@@ -195,7 +195,11 @@ quality_status_enum = SAEnum(
     QualityStatus, name="quality_status_type", create_type=False
 )
 candle_interval_enum = SAEnum(
-    CandleInterval, name="candle_interval", create_type=False
+    CandleInterval,
+    name="candle_interval",
+    create_type=False,
+    # 成员名（M1/D1）与存储值（1m/1d）不同，需按「值」读写以匹配迁移中定义的 ENUM
+    values_callable=lambda e: [m.value for m in e],
 )
 cycle_phase_enum = SAEnum(
     CyclePhase, name="cycle_phase", create_type=False

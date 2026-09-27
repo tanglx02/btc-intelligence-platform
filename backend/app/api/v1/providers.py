@@ -135,6 +135,25 @@ def _score_to_dict(s: ProviderScore | None) -> dict[str, Any] | None:
     }
 
 
+def _live_health_states() -> dict[str, str]:
+    """Provider 名(小写) -> 实时 health_state（大写）。
+
+    DB 的 providers.status 是导入/种子时的静态快照，滞后于运行时；
+    列表状态以内存 registry 的 health_state 为准，与 /system/health
+    的在线统计口径保持一致。registry 未启动时返回空 dict（退回 DB 快照）。
+    """
+    try:
+        from app.services.provider_service import get_provider_service
+
+        return {
+            (e.get("name") or "").lower():
+                (_enum_value(e.get("health_state")) or "").upper()
+            for e in get_provider_service().list_providers()
+        }
+    except Exception:  # noqa: BLE001 - registry 未启动时退回 DB 快照
+        return {}
+
+
 def _provider_to_dict(provider: Provider, health: ProviderHealth | None) -> dict[str, Any]:
     """Provider + 最新健康快照 → 列表项（config 为掩码后的配置明细）。"""
     return {
@@ -195,7 +214,14 @@ async def list_providers(
         if enabled_only:
             stmt = stmt.where(Provider.is_enabled.is_(True))
         rows = (await session.execute(stmt)).all()
-        items = [_provider_to_dict(p, h) for p, h in rows]
+        live = _live_health_states()
+        items = []
+        for p, h in rows:
+            item = _provider_to_dict(p, h)
+            live_status = live.get((p.name or "").lower())
+            if live_status:
+                item["status"] = live_status
+            items.append(item)
         return _ok(items, count=len(items), category=category)
     except HTTPException:
         raise

@@ -95,17 +95,22 @@ async def _provider_summary() -> dict[str, Any]:
 
         entries = get_provider_service().list_providers()
         if entries:
+            # 在线口径：按 health_state（online/degraded/...）统计，
+            # 与数据源中心 /providers 页（DB ProviderStatus 同源）一致；
+            # lifecycle status（running/health_checking/...）是运行态细节，
+            # 不含 ONLINE 值，之前的口径导致 /admin「Provider 在线」恒为 0
             by_status: dict[str, int] = {}
             items = []
             for e in entries:
-                status = _val(e.get("status")) or "UNKNOWN"
-                by_status[status] = by_status.get(status, 0) + 1
+                health_state = (_val(e.get("health_state")) or "UNKNOWN").upper()
+                by_status[health_state] = by_status.get(health_state, 0) + 1
                 items.append(
                     {
                         "name": e.get("name"),
                         "category": _val(e.get("category")),
-                        "status": status,
+                        "status": health_state,
                         "health_state": _val(e.get("health_state")),
+                        "lifecycle_status": _val(e.get("status")),
                         "priority": e.get("priority"),
                         "is_enabled": e.get("is_enabled"),
                         "is_available": e.get("is_available"),
@@ -133,7 +138,7 @@ async def _provider_summary() -> dict[str, Any]:
             total = (
                 await session.execute(select(func.count()).select_from(Provider))
             ).scalar_one()
-        by_status = {_val(status): int(cnt) for status, cnt in rows}
+        by_status = {(_val(status) or "UNKNOWN").upper(): int(cnt) for status, cnt in rows}
         return {"source": "database", "total": int(total), "by_status": by_status}
     except Exception as e:  # noqa: BLE001
         return {"source": "none", "error": str(e), "total": 0, "by_status": {}}

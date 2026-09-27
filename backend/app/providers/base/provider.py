@@ -364,7 +364,12 @@ class BaseProvider(ABC):
         Returns:
             FetchResult 封装的响应结果
         """
-        if not self._http_client or not self.is_available:
+        # HEALTH_CHECKING 状态下放行：健康监测器先置状态再发起探测请求，
+        # 若拦截则健康检查永远无法完成（所有 Provider 永远 OFFLINE）
+        if (
+            not self._http_client
+            or (not self.is_available and self._status != ProviderLifecycleStatus.HEALTH_CHECKING)
+        ):
             return FetchResult(
                 success=False,
                 error=f"Provider {self.name} is not available (status={self._status.value})",

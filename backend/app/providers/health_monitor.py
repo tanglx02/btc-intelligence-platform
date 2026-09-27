@@ -259,7 +259,8 @@ class HealthMonitor:
         if provider.status == ProviderLifecycleStatus.DISABLED:
             return
 
-        # 执行健康探测
+        # 执行健康探测（记录检查前状态：HEALTH_CHECKING 是过渡态，结束后必须离开）
+        prev_status = provider.status
         provider.set_status(ProviderLifecycleStatus.HEALTH_CHECKING)
         health_ok = False
 
@@ -287,10 +288,31 @@ class HealthMonitor:
 
         if new_state != provider.health_state:
             await self._transition_state(provider, new_state, score)
+        else:
+            # 状态未变化时不会走 _transition_state（其中才同步 lifecycle），
+            # 恢复检查前的生命周期状态，否则永远停在 HEALTH_CHECKING
+            provider.set_status(prev_status)
+
+        # 兜底：健康检查结束后不得停留在 HEALTH_CHECKING（不在 is_available
+        # 白名单且无其他机制推进它，否则 Provider 永远不可用，
+        # execute_with_failover 会跳过所有请求）
+        if provider.status == ProviderLifecycleStatus.HEALTH_CHECKING:
+            provider.set_status(self._lifecycle_for_state(new_state))
 
         # 更新优先级（如果 manager 存在）
         if self._manager and hasattr(self._manager, "update_health_score"):
             self._manager.update_health_score(provider.name, score)
+
+    @staticmethod
+    def _lifecycle_for_state(state: HealthState) -> ProviderLifecycleStatus:
+        """健康状态 -> 稳定生命周期状态（HEALTH_CHECKING 的兜底出口）。"""
+        if state == HealthState.ONLINE:
+            return ProviderLifecycleStatus.RUNNING
+        if state == HealthState.DISABLED:
+            return ProviderLifecycleStatus.DISABLED
+        if state in (HealthState.DEGRADED, HealthState.SLOW):
+            return ProviderLifecycleStatus.DEGRADED
+        return ProviderLifecycleStatus.OFFLINE
 
     def compute_score(self, provider_name: str, metrics: ProviderMetrics) -> float:
         """计算 Provider 的综合健康评分 (0-100)。

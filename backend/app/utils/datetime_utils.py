@@ -18,4 +18,17 @@ def utcnow() -> datetime:
     return datetime.now(UTC)
 
 
-__all__ = ["utcnow"]
+def as_naive_utc(dt: datetime) -> datetime:
+    """aware datetime 转 naive UTC（naive 原样返回，视为 UTC）。
+
+    Provider 内部日频数据（ETF 日期 / 恐惧贪婪指数日期等）以 naive UTC
+    表示；调用方（Service / 引擎）可能传入 aware datetime，比较前统一
+    去掉 tzinfo，避免 naive/aware 混算抛出
+    ``TypeError: can't compare offset-naive and offset-aware datetimes``。
+    """
+    if dt.tzinfo is None:
+        return dt
+    return dt.astimezone(UTC).replace(tzinfo=None)
+
+
+__all__ = ["as_naive_utc", "utcnow"]

@@ -31,7 +31,7 @@ from app.providers.base.types import (
     ProviderMetadata,
     QualityStatus,
 )
-from app.utils.datetime_utils import utcnow
+from app.utils.datetime_utils import as_naive_utc, utcnow
 
 _CACHE_TTL = 1800.0
 _PERIOD_KEYS = {
@@ -260,9 +260,12 @@ class SoSoValueProvider(BaseETFProvider):
             days = {"1d": 1, "7d": 7, "30d": 30, "90d": 90}[period]
             funds = [self._fund_fields(i) for i in self._extract_fund_list(data)]
             if end_date:
+                # end_date 可能来自 Service/引擎（aware UTC）；f["date"] 为 naive UTC，
+                # 比较前归一化避免 naive/aware 混算 TypeError
+                end_date = as_naive_utc(end_date)
                 boundary = end_date.replace(hour=0, minute=0, second=0, microsecond=0)
                 funds = [f for f in funds if f["date"] and f["date"] <= boundary]
-            cutoff = utcnow() - timedelta(days=days)
+            cutoff = as_naive_utc(utcnow()) - timedelta(days=days)
             recent = [
                 f["daily_net_flow"]
                 for f in funds
@@ -315,8 +318,9 @@ class SoSoValueProvider(BaseETFProvider):
                 day = f["date"].replace(hour=0, minute=0, second=0, microsecond=0)
                 daily[day] = daily.get(day, 0.0) + f["daily_net_flow"]
 
-        start_day = start.replace(hour=0, minute=0, second=0, microsecond=0)
-        end_day = end.replace(hour=0, minute=0, second=0, microsecond=0)
+        # start/end 可能来自 Service/引擎（aware UTC）；daily 键为 naive UTC，归一化后比较
+        start_day = as_naive_utc(start).replace(hour=0, minute=0, second=0, microsecond=0)
+        end_day = as_naive_utc(end).replace(hour=0, minute=0, second=0, microsecond=0)
         baseline = sum(v for d, v in daily.items() if d < start_day)
 
         cumulative = baseline

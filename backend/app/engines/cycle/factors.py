@@ -419,7 +419,10 @@ async def calculate_capital_flow_factor(
         try:
             etf_res = await etf_service.get_net_flow(period="7d", end_date=as_of)
             if etf_res.success:
-                etf_flow = _extract_value(etf_res.data, "net_flow_usd", "total", "value")
+                # etf_flow_payload 标准载荷字段为 amount_usd（net_flow_usd 为旧别名）
+                etf_flow = _extract_value(
+                    etf_res.data, "net_flow_usd", "amount_usd", "total", "value"
+                )
                 if etf_flow is not None:
                     details["etf_7d_netflow_usd"] = round(etf_flow, 0)
                     # 典型周流量 ±5 亿 USD

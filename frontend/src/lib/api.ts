@@ -147,9 +147,6 @@ export interface ListQuery {
 /* -------------------------------------------------------------------------- */
 
 import type {
-  AlertEvent,
-  AlertRule,
-  AlertTemplate,
   BacktestResult,
   Candle,
   ETFFlow,
@@ -180,7 +177,6 @@ import type {
   ProviderHealth,
   ProviderInfo,
   PutCallData,
-  SmtpConfig,
   SystemHealth,
   SystemJobInfo,
   Transaction,
@@ -357,17 +353,59 @@ export const apiClient = {
     getStats: () => get<Record<string, unknown>>("/system/stats"),
   },
 
-  /** 智能预警 */
+  /**
+   * 智能预警（后端响应多为 { items, total, page, size } 分页 dict，
+   * 具体结构见 app/services/alert_service.py；调用方以本文件
+   * ApiResponse<Record<string, unknown>> 接收后自行窄化类型）。
+   */
   alerts: {
-    getRules: () => get<AlertRule[]>("/alerts/rules"),
-    createRule: (body: Record<string, unknown>) => post<AlertRule>("/alerts/rules", body),
+    // ---- 规则 CRUD / 操作 ----
+    getRules: (query: { status?: string; severity?: string; page?: number; size?: number } = {}) =>
+      get<Record<string, unknown>>("/alerts/rules", { params: query }),
+    getRule: (id: string) => get<Record<string, unknown>>(`/alerts/rules/${id}`),
+    createRule: (body: Record<string, unknown>) =>
+      post<Record<string, unknown>>("/alerts/rules", body),
     updateRule: (id: string, body: Record<string, unknown>) =>
-      put<AlertRule>(`/alerts/rules/${id}`, body),
-    deleteRule: (id: string) => del<{ deleted: boolean }>(`/alerts/rules/${id}`),
-    getEvents: (query: ListQuery = {}) =>
-      get<AlertEvent[]>("/alerts/events", { params: query }),
-    getTemplates: () => get<AlertTemplate[]>("/alerts/templates"),
-    getSmtpConfig: () => get<SmtpConfig>("/alerts/channels/smtp"),
+      put<Record<string, unknown>>(`/alerts/rules/${id}`, body),
+    deleteRule: (id: string) =>
+      del<{ deleted: boolean; rule_id: string }>(`/alerts/rules/${id}`),
+    testRule: (id: string) =>
+      post<Record<string, unknown>>(`/alerts/rules/${id}/test`),
+    pauseRule: (id: string) =>
+      post<Record<string, unknown>>(`/alerts/rules/${id}/pause`),
+    resumeRule: (id: string) =>
+      post<Record<string, unknown>>(`/alerts/rules/${id}/resume`),
+    backtestRule: (id: string, query: { start?: string; end?: string } = {}) =>
+      post<Record<string, unknown>>(`/alerts/rules/${id}/backtest`, undefined, {
+        params: query,
+      }),
+    // ---- 事件 ----
+    getEvents: (
+      query: { rule_id?: string; start?: string; end?: string; page?: number; size?: number } = {},
+    ) => get<Record<string, unknown>>("/alerts/events", { params: query }),
+    ackEvent: (id: string) =>
+      post<Record<string, unknown>>(`/alerts/events/${id}/ack`),
+    // ---- 渠道 ----
+    getChannels: () => get<Record<string, unknown>>("/alerts/channels"),
+    createChannel: (body: Record<string, unknown>) =>
+      post<Record<string, unknown>>("/alerts/channels", body),
+    testChannel: (id: string) =>
+      post<Record<string, unknown>>(`/alerts/channels/${id}/test`),
+    // ---- SMTP（密码仅返回掩码 ***，更新时空密码表示保留旧值）----
+    getSmtpConfig: () => get<Record<string, unknown>>("/alerts/smtp/config"),
+    updateSmtpConfig: (body: Record<string, unknown>) =>
+      put<Record<string, unknown>>("/alerts/smtp/config", body),
+    testSmtp: (body: Record<string, unknown> = {}) =>
+      post<Record<string, unknown>>("/alerts/smtp/test", body),
+    // ---- 摘要 ----
+    getDigestConfig: () => get<Record<string, unknown>>("/alerts/digest/config"),
+    updateDigestConfig: (body: Record<string, unknown>) =>
+      put<Record<string, unknown>>("/alerts/digest/config", body),
+    sendDigest: (body: { type: "daily" | "weekly"; recipients?: string[] | null }) =>
+      post<Record<string, unknown>>("/alerts/digest/send", body),
+    // ---- 统计与模板 ----
+    getStats: () => get<Record<string, unknown>>("/alerts/stats"),
+    getTemplates: () => get<Record<string, unknown>[]>("/alerts/templates"),
   },
 
   /** 认证 */

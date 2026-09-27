@@ -19,6 +19,7 @@ from loguru import logger
 
 from app.providers.base.provider import BaseProvider
 from app.providers.base.registry import ProviderRegistry
+from app.providers.config_apply import apply_dataclass_fields
 from app.providers.base.types import (
     ErrorType,
     FailoverEvent,
@@ -216,6 +217,18 @@ class FailoverEngine:
         # 恢复探测任务
         self._recovery_task: asyncio.Task | None = None
         self._running = False
+
+    def apply_runtime_config(
+        self,
+        *,
+        recovery: dict[str, Any] | None = None,
+        anti_flapping: dict[str, Any] | None = None,
+    ) -> None:
+        """运行时更新恢复/防抖动配置（SettingsService 接入，仅覆盖提供的字段）。"""
+        apply_dataclass_fields(self._recovery_config, recovery, label="failover.recovery")
+        apply_dataclass_fields(
+            self._anti_flapping._config, anti_flapping, label="failover.anti_flapping"
+        )
 
     def _build_error_policies(self) -> dict[ErrorType, ErrorPolicy]:
         """构建错误处理策略映射。"""

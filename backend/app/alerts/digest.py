@@ -668,7 +668,12 @@ class DigestService:
     def _resolve_recipients(self, recipients: list[str] | None) -> list[str]:
         if recipients:
             return [r for r in recipients if r]
-        default = settings.alert_default_recipient
+        from app.services.settings_service import get_settings_service
+
+        # SettingsService(alert.default_recipient) > env（get_sync 同步读，热生效）
+        default = get_settings_service().get_sync(
+            "alert.default_recipient", None
+        ) or settings.alert_default_recipient
         return [default] if default else []
 
     def _daily_text(self, data: dict) -> str:

@@ -87,7 +87,18 @@ class AlertEngine:
 
     @property
     def scan_interval(self) -> int:
-        """扫描间隔（秒）；settings.alert_scan_interval_seconds 可覆盖，默认 60。"""
+        """扫描间隔（秒）：SettingsService(alert.scan_interval_seconds) > env > 默认 60。
+
+        property 每轮重读 → 后台修改下一轮扫描即热生效。
+        """
+        try:
+            from app.services.settings_service import get_settings_service
+
+            value = get_settings_service().get_sync("alert.scan_interval_seconds", None)
+            if value is not None and int(value) > 0:
+                return int(value)
+        except Exception:  # noqa: BLE001 - 设置层不可用时回退 env/默认值
+            pass
         return int(getattr(settings, "alert_scan_interval_seconds", 60) or 60)
 
     @property

@@ -107,6 +107,18 @@ class CooldownManager:
 
     # ---- 用户级速率限制 ----
 
+    def _effective_hourly_limit(self) -> int:
+        """每小时限额：SettingsService(alert.max_per_hour) > 构造值（热生效）。"""
+        try:
+            from app.services.settings_service import get_settings_service
+
+            value = get_settings_service().get_sync("alert.max_per_hour", None)
+            if value is not None and int(value) > 0:
+                return int(value)
+        except Exception:  # noqa: BLE001 - 设置层不可用时用构造值
+            pass
+        return self._hourly_limit
+
     async def check_rate_limit(self, user_id: UUID | str | None) -> bool:
         """用户级每小时最多 N 条（Redis 计数器，INCR + 1h TTL）。
 
@@ -115,6 +127,7 @@ class CooldownManager:
         if user_id is None:
             return True
 
+        limit = self._effective_hourly_limit()
         window = datetime.now(UTC).strftime("%Y%m%d%H")
         key = _RATE_KEY.format(user_id=user_id, window=window)
 
@@ -122,7 +135,7 @@ class CooldownManager:
             try:
                 current = await self._redis.incr(key)
                 await self._redis.expire(key, 3600)
-                return int(current) <= self._hourly_limit
+                return int(current) <= limit
             except Exception as e:  # noqa: BLE001 - Redis 故障降级
                 logger.warning(f"CooldownManager: Redis 限流计数失败，降级内存: {e}")
                 self._redis = None
@@ -132,4 +145,4 @@ class CooldownManager:
             self._rate_window[key] = window
             self._rate_memory[key] = 0
         self._rate_memory[key] = self._rate_memory.get(key, 0) + 1
-        return self._rate_memory[key] <= self._hourly_limit
+        return self._rate_memory[key] <= limit

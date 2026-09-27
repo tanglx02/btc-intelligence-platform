@@ -109,6 +109,17 @@ class ProviderRegistry:
         self._provider_classes[name] = provider_class
         logger.debug(f"Provider class registered: {name} -> {provider_class.__name__}")
 
+    def get_provider_class(self, name: str) -> type[BaseProvider] | None:
+        """按名称获取已注册的 Provider 类（用于配置实例化/热重载）。
+
+        Args:
+            name: Provider 名称标识
+
+        Returns:
+            Provider 类，未找到返回 None
+        """
+        return self._provider_classes.get(name)
+
     # ---- 查询 ----
 
     def get_provider(self, name: str) -> BaseProvider | None:

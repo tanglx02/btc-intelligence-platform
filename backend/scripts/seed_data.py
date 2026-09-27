@@ -39,7 +39,7 @@ ASSETS = [
 
 PROVIDERS = [
     {
-        "name": "Binance",
+        "name": "binance",
         "category": "MARKET",
         "base_url": "https://api.binance.com",
         "priority": 10,
@@ -50,7 +50,7 @@ PROVIDERS = [
         "supported_intervals": ["1m", "5m", "15m", "30m", "1h", "4h", "1d", "1w"],
     },
     {
-        "name": "OKX",
+        "name": "okx",
         "category": "MARKET",
         "base_url": "https://www.okx.com/api/v5",
         "priority": 20,
@@ -61,7 +61,7 @@ PROVIDERS = [
         "supported_intervals": ["1m", "5m", "15m", "30m", "1h", "4h", "1d", "1w"],
     },
     {
-        "name": "Coinbase",
+        "name": "coinbase",
         "category": "MARKET",
         "base_url": "https://api.exchange.coinbase.com",
         "priority": 30,
@@ -72,7 +72,7 @@ PROVIDERS = [
         "supported_intervals": ["1m", "5m", "15m", "1h", "4h", "1d"],
     },
     {
-        "name": "Glassnode",
+        "name": "glassnode",
         "category": "ONCHAIN",
         "base_url": "https://api.glassnode.com/v1",
         "priority": 10,
@@ -82,7 +82,7 @@ PROVIDERS = [
         "supported_symbols": ["BTC"],
     },
     {
-        "name": "CryptoQuant",
+        "name": "cryptoquant",
         "category": "ONCHAIN",
         "base_url": "https://api.cryptoquant.com/v1",
         "priority": 20,
@@ -92,7 +92,7 @@ PROVIDERS = [
         "supported_symbols": ["BTC"],
     },
     {
-        "name": "Coinglass",
+        "name": "coinglass",
         "category": "DERIVATIVES",
         "base_url": "https://open-api.coinglass.com/public/v2",
         "priority": 10,
@@ -102,7 +102,7 @@ PROVIDERS = [
         "supported_symbols": ["BTC"],
     },
     {
-        "name": "Deribit",
+        "name": "deribit",
         "category": "OPTIONS",
         "base_url": "https://www.deribit.com/api/v2",
         "priority": 10,
@@ -112,7 +112,7 @@ PROVIDERS = [
         "supported_symbols": ["BTC"],
     },
     {
-        "name": "Farside",
+        "name": "farside",
         "category": "ETF",
         "base_url": "https://farside.co.uk",
         "priority": 10,
@@ -122,7 +122,7 @@ PROVIDERS = [
         "supported_symbols": ["BTC"],
     },
     {
-        "name": "FRED",
+        "name": "fred",
         "category": "MACRO",
         "base_url": "https://api.stlouisfed.org/fred",
         "priority": 10,
@@ -132,7 +132,7 @@ PROVIDERS = [
         "supported_symbols": ["BTC"],
     },
     {
-        "name": "Alternative.me",
+        "name": "alternative_me",
         "category": "SENTIMENT",
         "base_url": "https://api.alternative.me",
         "priority": 10,

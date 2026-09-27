@@ -75,6 +75,13 @@ class Provider(Base, TimestampMixin):
     priority: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("100"), comment="优先级，数字越小优先级越高")
     is_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"), comment="是否启用")
     is_locked: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"), comment="是否锁定优先级")
+    config_overrides: Mapped[Optional[dict]] = mapped_column(
+        JSONB, server_default=text("'{}'::jsonb"),
+        comment="后台修改的配置覆盖项（DB 优先于 YAML，含加密后的 api_secret 等）",
+    )
+    config_source: Mapped[Optional[str]] = mapped_column(
+        String(10), server_default=text("'YAML'"), comment="配置来源：YAML / DB"
+    )
     status: Mapped[ProviderStatus] = mapped_column(
         provider_status_enum, nullable=False, server_default=text("'OFFLINE'"), comment="当前状态",
     )

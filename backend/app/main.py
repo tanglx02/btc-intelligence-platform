@@ -79,6 +79,19 @@ async def lifespan(app: FastAPI):
     setup_logging()
     logger.info("Starting BTC Intelligence Platform...")
 
+    # 0. 配置中心预热 + 存量明文密码一次性加密迁移（DB 不可用时容错跳过）
+    try:
+        from app.services.settings_service import (
+            get_settings_service,
+            migrate_channel_password_encryption,
+        )
+
+        get_settings_service().invalidate()
+        migrated = await migrate_channel_password_encryption()
+        logger.info(f"Settings service ready (password migrated: {migrated})")
+    except Exception as e:  # noqa: BLE001 - 迁移失败不阻断启动
+        logger.warning(f"Settings preheating/migration skipped: {e}")
+
     # 1. ProviderService（Redis 连接、Provider 注册与健康监控）
     try:
         from app.services.provider_service import get_provider_service

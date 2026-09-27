@@ -27,6 +27,7 @@ _PARALLEL_ROUTES = (
     "backtest",
     "providers",
     "alerts",
+    "settings",
 )
 
 

@@ -20,6 +20,7 @@ from loguru import logger
 
 from app.providers.base.provider import BaseProvider
 from app.providers.base.registry import ProviderRegistry
+from app.providers.config_apply import apply_dataclass_fields
 from app.providers.base.types import (
     ErrorType,
     HealthState,
@@ -173,6 +174,26 @@ class HealthMonitor:
 
         # 状态变更回调
         self._state_change_callbacks: list = []
+
+    def apply_runtime_config(
+        self,
+        *,
+        check_interval: int | float | None = None,
+        weights: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
+    ) -> None:
+        """运行时更新健康检查配置（SettingsService 接入，仅覆盖提供的字段）。
+
+        Args:
+            check_interval: 健康检查间隔（秒），<=0 或 None 跳过
+            weights: 评分权重覆盖（ScoringWeights 字段子集）
+            params: 评分参数覆盖（ScoringParams 字段子集）
+        """
+        if check_interval is not None and int(check_interval) > 0:
+            self._check_interval = int(check_interval)
+        apply_dataclass_fields(self._weights, weights, label="health.scoring.weights")
+        apply_dataclass_fields(self._params, params, label="health.scoring.params")
+        logger.info(f"HealthMonitor runtime config applied (interval={self._check_interval}s)")
 
     # ---- 生命周期 ----
 

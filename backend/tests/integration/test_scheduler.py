@@ -419,8 +419,11 @@ class TestSystemJobsRecord:
             if db_capture.statements:
                 break
         await sched.stop()
-        assert len(db_capture.statements) >= 1
-        stmt = db_capture.statements[0]
+        # 启动时 _load_overrides_from_db 会先发一条 SELECT（配置覆盖），
+        # 因此取第一条 Insert（运行记录 upsert）断言
+        inserts = [s for s in db_capture.statements if isinstance(s, postgresql.Insert)]
+        assert inserts
+        stmt = inserts[0]
         # 必须是 postgresql 方言的 Insert（upsert on_conflict_do_update）
         assert isinstance(stmt, postgresql.Insert)
         compiled = stmt.compile(dialect=postgresql.dialect())
@@ -441,8 +444,10 @@ class TestSystemJobsRecord:
             if db_capture.statements:
                 break
         await sched.stop()
-        assert db_capture.statements, "失败也应写入 system_jobs"
-        compiled = db_capture.statements[0].compile(dialect=postgresql.dialect())
+        # 同上：跳过启动时的配置覆盖 SELECT，取第一条运行记录 upsert
+        inserts = [s for s in db_capture.statements if isinstance(s, postgresql.Insert)]
+        assert inserts, "失败也应写入 system_jobs"
+        compiled = inserts[0].compile(dialect=postgresql.dialect())
         assert compiled.params["status"] == JobStatus.FAILED
         assert compiled.params["last_error"] == "e"
         # FAILED 分支：consecutive_failures = consecutive_failures + 1（SQL 表达式）

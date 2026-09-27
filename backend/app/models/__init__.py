@@ -83,7 +83,14 @@ from .backtest import BacktestResult, BacktestRun, BacktestTrade, Strategy, Stra
 from .portfolio import PortfolioSnapshot, User, UserHolding, UserPlan, UserTransaction
 
 # 系统数据
-from .system import AuditLog, DataQuality, MarketEvent, SyncCheckpoint, SystemJob
+from .system import (
+    AuditLog,
+    DataQuality,
+    MarketEvent,
+    SyncCheckpoint,
+    SystemJob,
+    SystemSetting,
+)
 
 # 预警
 from .alert import AlertChannelConfig, AlertDelivery, AlertEvent, AlertRule
@@ -181,6 +188,7 @@ __all__ = [
     "MarketEvent",
     "SyncCheckpoint",
     "SystemJob",
+    "SystemSetting",
     # Alert
     "AlertChannelConfig",
     "AlertDelivery",

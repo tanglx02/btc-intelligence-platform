@@ -30,9 +30,11 @@ from sqlalchemy import select
 from app.alerts.channels.base import SendResult
 from app.alerts.channels.registry import ChannelRegistry
 from app.alerts.schemas import ConditionNode
+from app.core import crypto
 from app.core.config import settings
 from app.core.database import get_db_session_ctx
 from app.models.alert import AlertChannelConfig, AlertDelivery, AlertEvent, AlertRule
+from app.services.settings_service import get_settings_service
 
 #: Jinja2 模板目录
 TEMPLATE_DIR = Path(__file__).parent / "templates"
@@ -150,7 +152,7 @@ class AlertDispatcher:
         channels = [c for c in (rule.channels or ["EMAIL"]) if c]
         recipients = {
             c: (rule.channel_config or {}).get("recipient")
-            or settings.alert_default_recipient
+            or get_settings_service().get_sync("alert.default_recipient", None)
             or smtp_cfg.get("recipient", "")
             for c in channels
         }
@@ -560,7 +562,15 @@ class AlertDispatcher:
                         .limit(1)
                     )
                 ).scalar_one_or_none()
-            return dict(row.config) if row is not None else {}
+            cfg = dict(row.config) if row is not None else {}
+            # 密码解密兼容：密文（enc:v1: 前缀）解密，存量明文原样
+            # （启动时由 migrate_channel_password_encryption 一次性加密写回）
+            password = cfg.get("password")
+            if password:
+                decrypted = crypto.decrypt_if_encrypted(str(password))
+                if decrypted:
+                    cfg["password"] = decrypted
+            return cfg
         except Exception as e:  # noqa: BLE001 - DB 不可用回退环境变量配置
             logger.warning(f"Dispatcher: SMTP 运行时配置加载失败，回退 env: {e}")
             return {}

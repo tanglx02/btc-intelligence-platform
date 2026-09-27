@@ -13,6 +13,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
 from loguru import logger
+from pydantic import BaseModel
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,6 +25,7 @@ from app.models.provider import (
     ProviderHealth,
     ProviderScore,
 )
+from app.services.provider_config_service import mask_provider_row
 from app.services.provider_service import get_provider_service
 
 router = APIRouter(prefix="/providers", tags=["Providers"])
@@ -73,9 +75,11 @@ def _dec(v: Any) -> float | None:
 
 
 async def _get_provider_by_name(session: AsyncSession, name: str) -> Provider:
-    """按名称查 Provider，不存在抛 404。"""
+    """按名称查 Provider（大小写不敏感，YAML key 小写），不存在抛 404。"""
     provider = (
-        await session.execute(select(Provider).where(Provider.name == name.strip().upper()))
+        await session.execute(
+            select(Provider).where(func.lower(Provider.name) == name.strip().lower())
+        )
     ).scalars().first()
     if provider is None:
         raise HTTPException(status_code=404, detail=f"Provider {name!r} 不存在")
@@ -132,7 +136,7 @@ def _score_to_dict(s: ProviderScore | None) -> dict[str, Any] | None:
 
 
 def _provider_to_dict(provider: Provider, health: ProviderHealth | None) -> dict[str, Any]:
-    """Provider + 最新健康快照 → 列表项。"""
+    """Provider + 最新健康快照 → 列表项（config 为掩码后的配置明细）。"""
     return {
         "id": str(provider.id),
         "name": provider.name,
@@ -151,6 +155,7 @@ def _provider_to_dict(provider: Provider, health: ProviderHealth | None) -> dict
         ),
         "description": provider.description,
         "latest_health": _health_to_dict(health),
+        "config": mask_provider_row(provider),
     }
 
 
@@ -372,7 +377,7 @@ async def test_provider(
     """对指定 Provider 立即执行一次连通性/健康检查（实时探测）。"""
     try:
         ps = await _provider_service()
-        snapshot = await ps.check_provider_health(name.strip().upper())
+        snapshot = await ps.check_provider_health(name.strip())
         if snapshot is None:
             raise HTTPException(status_code=404, detail=f"Provider {name!r} 不存在")
         return _ok(snapshot, name=name, tested_at=datetime.now(timezone.utc).isoformat())
@@ -381,6 +386,117 @@ async def test_provider(
     except Exception as exc:  # noqa: BLE001
         logger.exception("测试 Provider {} 连通性失败: {}", name, exc)
         return _unavailable(f"Provider 连通性测试服务不可用: {exc}")
+
+
+# ---------------------------------------------------------------------------
+# 配置后台化端点（读写 DB 配置 + 热重载生效）
+# ---------------------------------------------------------------------------
+
+
+class ProviderConfigUpdate(BaseModel):
+    """Provider 配置部分更新请求体（仅提交的字段会被更新）。"""
+
+    priority: int | None = None
+    is_enabled: bool | None = None
+    is_locked: bool | None = None
+    base_url: str | None = None
+    proxy: str | None = None
+    timeout_config: dict[str, Any] | None = None
+    retry_config: dict[str, Any] | None = None
+    rate_limit: dict[str, Any] | None = None
+    api_key: str | None = None
+    api_secret: str | None = None
+    api_passphrase: str | None = None
+
+
+class SyncFromYamlRequest(BaseModel):
+    """YAML -> DB 显式同步请求体。"""
+
+    overwrite: bool = False
+
+
+@router.post("/sync-from-yaml")
+async def sync_from_yaml(body: SyncFromYamlRequest | None = None) -> dict[str, Any]:
+    """显式从 providers.yaml 导入配置到 providers 表。
+
+    overwrite=False 时仅表空才导入；True 时覆盖已有行（保留加密凭据与
+    后台修改的 config_overrides）。
+    """
+    try:
+        from app.services.provider_config_service import get_provider_config_service
+
+        overwrite = bool(body.overwrite) if body is not None else False
+        count = await get_provider_config_service().import_yaml_to_db(force=overwrite)
+        return _ok({"imported": count, "overwrite": overwrite})
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("providers.yaml 同步失败: {}", exc)
+        return _unavailable(f"YAML 同步服务不可用: {exc}")
+
+
+@router.put("/{name}")
+async def update_provider(
+    name: str,
+    body: ProviderConfigUpdate,
+    session: AsyncSession = Depends(get_db_session),
+) -> dict[str, Any]:
+    """更新 Provider 配置（落库 + 热重载生效，响应掩码）。
+
+    凭据约定：api_key/api_secret/api_passphrase 传 ""=保留旧值，
+    传非空=加密存储，传 null=清除。轻量字段（enabled/priority/locked）
+    直接改运行实例免重建；其余字段触发实例热重载。
+    """
+    try:
+        updates = body.model_dump(exclude_unset=True)
+        if not updates:
+            raise HTTPException(status_code=400, detail="请求体为空，无可更新字段")
+
+        provider = await _get_provider_by_name(session, name)
+        canonical = provider.name
+
+        from app.services.provider_config_service import get_provider_config_service
+
+        saved = await get_provider_config_service().save_provider_config(canonical, updates)
+        if saved is None:
+            raise HTTPException(status_code=404, detail=f"Provider {name!r} 不存在")
+
+        ps = await _provider_service()
+        result = await ps.apply_config_change(canonical, updates)
+        return _ok(
+            {"name": canonical, "config": saved, **result},
+            updated_at=datetime.now(timezone.utc).isoformat(),
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("更新 Provider {} 配置失败: {}", name, exc)
+        return _unavailable(f"Provider 配置更新服务不可用: {exc}")
+
+
+@router.post("/{name}/reload")
+async def reload_provider(
+    name: str,
+    session: AsyncSession = Depends(get_db_session),
+) -> dict[str, Any]:
+    """手动热重载指定 Provider（重建实例 + 重建优先级队列）。"""
+    try:
+        provider = await _get_provider_by_name(session, name)
+        canonical = provider.name
+        ps = await _provider_service()
+        reloaded = await ps.reload_provider(canonical)
+        return _ok(
+            {
+                "name": canonical,
+                "reloaded": reloaded,
+                "note": None if reloaded else "Provider 已禁用或重载失败，运行时状态已同步",
+            }
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("热重载 Provider {} 失败: {}", name, exc)
+        return _unavailable(f"Provider 热重载服务不可用: {exc}")
 
 
 __all__ = ["router"]

@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     secret_key: str = Field(default="change-me-in-production")
     access_token_expire_minutes: int = Field(default=60 * 24)
     algorithm: str = Field(default="HS256")
+    # DB 敏感配置（system_settings / providers.api_key_encrypted）加密密钥；
+    # 未设置时从 SECRET_KEY 经 HKDF 派生（见 app.core.crypto）
+    settings_encryption_key: str = Field(default="")
 
     # ---- 数据库 (PostgreSQL + TimescaleDB) ----
     postgres_host: str = Field(default="localhost")

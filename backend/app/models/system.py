@@ -1,6 +1,7 @@
 """系统数据 ORM 模型。
 
-包含：data_quality, sync_checkpoints, system_jobs, audit_logs, market_events
+包含：system_settings, data_quality, sync_checkpoints, system_jobs,
+      audit_logs, market_events
 """
 
 from datetime import datetime
@@ -33,6 +34,34 @@ from .enums import (
     provider_category_enum,
     sync_status_enum,
 )
+
+
+class SystemSetting(Base, TimestampMixin):
+    """系统设置键值对（点分命名空间，后台可改并热生效）。"""
+
+    __tablename__ = "system_settings"
+    __table_args__ = (
+        {"comment": "系统设置键值对（点分命名空间）"},
+    )
+
+    id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True), primary_key=True, default=uuid4,
+        server_default=func.gen_random_uuid(), comment="主键 UUID",
+    )
+    key: Mapped[str] = mapped_column(
+        String(100), nullable=False, unique=True,
+        comment="设置键（点分命名空间：alert.scan_interval_seconds / provider.health_check.interval 等）",
+    )
+    value: Mapped[dict] = mapped_column(
+        JSONB, nullable=False, server_default=text("'{\"v\": null}'::jsonb"),
+        comment="设置值（统一 {\"v\": ...} 包装，兼容 JSONB 任意标量/结构）",
+    )
+    description: Mapped[Optional[str]] = mapped_column(String(500), comment="设置说明")
+    is_secret: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("false"),
+        comment="是否敏感值（true 时加密存储、读取时掩码）",
+    )
+    updated_by: Mapped[Optional[str]] = mapped_column(String(100), comment="最后修改人")
 
 
 class DataQuality(Base, CreatedAtMixin):

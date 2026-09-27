@@ -90,6 +90,8 @@ class SchedulerService:
             logger.warning("调度器已在运行，忽略重复 start")
             return
         self._running = True
+        # 启动时以 system_jobs 表中的配置覆盖默认调度（DB 不可用时使用默认值）
+        await self._load_overrides_from_db()
         started = 0
         for task in sorted(self._tasks.values(), key=lambda t: (t.priority, t.name)):
             if not task.enabled:
@@ -164,6 +166,44 @@ class SchedulerService:
             "duration_seconds": round(duration, 1),
             "error": error,
         }
+
+    async def update_interval(self, task_name: str, seconds: int) -> None:
+        """更新任务调度间隔（改 task.interval_seconds，下一轮生效）并同步 DB。
+
+        Args:
+            task_name: 任务名
+            seconds: 新间隔（秒，必须为正数）
+
+        Raises:
+            KeyError: 任务未注册
+            ValueError: 间隔非正数
+        """
+        task = self._tasks.get(task_name)
+        if task is None:
+            raise KeyError(f"未注册的任务: {task_name!r}")
+        if seconds <= 0:
+            raise ValueError(f"任务 {task_name!r} 的 interval_seconds 必须为正数")
+        old = task.interval_seconds
+        task.interval_seconds = int(seconds)
+        await self._update_job_config(task_name, interval=int(seconds))
+        logger.info("任务 {} 调度间隔更新: {}s -> {}s（下一轮生效）", task_name, old, seconds)
+
+    async def set_enabled(self, task_name: str, enabled: bool) -> None:
+        """启用/禁用任务（复用 _paused 暂停机制，循环存活到点跳过）并同步 DB。
+
+        Raises:
+            KeyError: 任务未注册
+        """
+        task = self._tasks.get(task_name)
+        if task is None:
+            raise KeyError(f"未注册的任务: {task_name!r}")
+        task.enabled = bool(enabled)
+        if enabled:
+            self._paused.discard(task_name)
+        else:
+            self._paused.add(task_name)
+        await self._update_job_config(task_name, enabled=bool(enabled))
+        logger.info("任务 {} 已{}", task_name, "启用" if enabled else "禁用")
 
     def list_tasks(self) -> list[dict[str, Any]]:
         """列出所有任务及状态（按优先级升序）。"""
@@ -245,6 +285,91 @@ class SchedulerService:
             step = min(_STOP_POLL_SECONDS, remaining)
             await asyncio.sleep(step)
             remaining -= step
+
+    # ------------------------------------------------------------------
+    # 内部：配置持久化（system_jobs 双重身份：仅读写配置字段）
+    # ------------------------------------------------------------------
+
+    async def _update_job_config(
+        self,
+        name: str,
+        *,
+        interval: int | None = None,
+        enabled: bool | None = None,
+    ) -> None:
+        """写入 system_jobs 配置字段（schedule_interval_seconds/is_enabled）。
+
+        仅覆盖配置字段，不碰运行记录字段（status/last_run_at/...）；
+        失败仅告警不影响任务运行。
+        """
+        task = self._tasks.get(name)
+        try:
+            from sqlalchemy.dialects.postgresql import insert as pg_insert
+
+            from app.core.database import get_db_session_ctx
+            from app.models.system import SystemJob
+
+            values: dict[str, Any] = dict(
+                job_name=name,
+                job_type="SCHEDULED",
+                job_group=task.job_group if task else "GENERAL",
+                description=task.description if task else None,
+                priority=task.priority if task else 50,
+            )
+            if interval is not None:
+                values["schedule_interval_seconds"] = int(interval)
+            if enabled is not None:
+                values["is_enabled"] = bool(enabled)
+            async with get_db_session_ctx() as session:
+                stmt = pg_insert(SystemJob.__table__).values(**values)
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=[SystemJob.job_name],
+                    set_={k: v for k, v in values.items() if k != "job_name"},
+                )
+                await session.execute(stmt)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("写入 system_jobs 配置失败（task={}）: {}", name, exc)
+
+    async def _load_overrides_from_db(self) -> int:
+        """启动时从 system_jobs 表读取配置覆盖（schedule_interval_seconds/is_enabled）。
+
+        只读配置字段回写内存任务定义；DB 不可用时容错返回 0。
+        """
+        try:
+            from sqlalchemy import select as sa_select
+
+            from app.core.database import get_db_session_ctx
+            from app.models.system import SystemJob
+
+            async with get_db_session_ctx() as session:
+                rows = (await session.execute(sa_select(SystemJob))).scalars().all()
+        except Exception as exc:  # noqa: BLE001 - DB 不可用使用默认调度
+            logger.warning("读取 system_jobs 配置覆盖失败（使用默认调度）: {}", exc)
+            return 0
+
+        applied = 0
+        for row in rows:
+            task = self._tasks.get(row.job_name)
+            if task is None:
+                continue
+            try:
+                db_interval = int(row.schedule_interval_seconds or 0)
+            except (TypeError, ValueError):
+                db_interval = 0
+            if db_interval > 0 and db_interval != task.interval_seconds:
+                task.interval_seconds = db_interval
+                applied += 1
+                logger.info(
+                    "任务 {} 调度间隔按 system_jobs 覆盖: {}s", task.name, db_interval
+                )
+            if row.is_enabled is False and task.enabled:
+                task.enabled = False
+                self._paused.add(task.name)
+                applied += 1
+                logger.info("任务 {} 按 system_jobs 配置保持禁用", task.name)
+        if applied:
+            logger.info("system_jobs 配置覆盖已应用: {} 处", applied)
+        return applied
 
     # ------------------------------------------------------------------
     # 内部：运行记录（system_jobs 表 upsert）

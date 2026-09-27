@@ -4,6 +4,7 @@
 数据库查询使用 async session；单表查询失败不影响其余部分（逐项容错）。
 """
 
+import asyncio
 import time
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -11,7 +12,9 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Query
+from fastapi.responses import JSONResponse
 from loguru import logger
+from pydantic import BaseModel
 from sqlalchemy import func, select, text
 
 from app.core.database import get_db_session_ctx
@@ -136,6 +139,17 @@ async def _provider_summary() -> dict[str, Any]:
         return {"source": "none", "error": str(e), "total": 0, "by_status": {}}
 
 
+def _scheduler_memory_state() -> dict[str, dict[str, Any]]:
+    """调度器内存态摘要（job_name -> list_tasks 条目；未启动/异常返回空 dict）。"""
+    try:
+        from app.scheduler.scheduler import get_scheduler
+
+        return {t["name"]: t for t in get_scheduler().list_tasks()}
+    except Exception as e:  # noqa: BLE001 - 调度器未启动/DB 不可用等场景
+        logger.debug(f"scheduler memory state unavailable: {e}")
+        return {}
+
+
 # --------------------------------------------------------------------------- #
 # 端点
 # --------------------------------------------------------------------------- #
@@ -241,8 +255,10 @@ async def list_jobs(
         async with get_db_session_ctx() as session:
             rows = (await session.execute(stmt)).scalars().all()
 
-        jobs = [
-            {
+        memory = _scheduler_memory_state()
+        jobs = []
+        for j in rows:
+            entry = {
                 "id": _val(j.id),
                 "job_name": j.job_name,
                 "job_type": j.job_type,
@@ -261,16 +277,89 @@ async def list_jobs(
                 "consecutive_failures": j.consecutive_failures,
                 "last_error": j.last_error,
             }
-            for j in rows
-        ]
+            # 合并内存态（实时运行状态与热更后的调度间隔）
+            t = memory.pop(j.job_name, None)
+            if t is not None:
+                entry["running"] = t.get("running")
+                entry["paused"] = t.get("paused")
+                entry["interval_seconds_effective"] = t.get("interval_seconds")
+                entry["last_status"] = t.get("last_status")
+                entry["last_duration_seconds"] = t.get("last_duration_seconds")
+            jobs.append(entry)
+
+        # 内存已注册但 DB 尚无行的任务（首次启动未落库）补充展示
+        for name, t in memory.items():
+            jobs.append(
+                {
+                    "id": None,
+                    "job_name": name,
+                    "job_type": "SCHEDULED",
+                    "job_group": t.get("job_group"),
+                    "description": t.get("description"),
+                    "schedule_cron": None,
+                    "schedule_interval_seconds": t.get("interval_seconds"),
+                    "priority": t.get("priority"),
+                    "status": None,
+                    "is_enabled": t.get("enabled"),
+                    "last_run_at": t.get("last_run_at"),
+                    "next_run_at": None,
+                    "last_duration_ms": None,
+                    "avg_duration_ms": None,
+                    "retry_count": None,
+                    "consecutive_failures": None,
+                    "last_error": t.get("last_error"),
+                    "running": t.get("running"),
+                    "paused": t.get("paused"),
+                    "interval_seconds_effective": t.get("interval_seconds"),
+                    "last_status": t.get("last_status"),
+                    "last_duration_seconds": t.get("last_duration_seconds"),
+                }
+            )
         return ok({"count": len(jobs), "jobs": jobs})
     except Exception as e:  # noqa: BLE001
         return err("DB_ERROR", f"查询任务列表失败: {e}", status=503)
 
 
+class JobConfigUpdate(BaseModel):
+    """调度任务配置更新请求体（interval_seconds/enabled 至少一项）。"""
+
+    interval_seconds: int | None = None
+    enabled: bool | None = None
+
+
+@router.put("/jobs/{job_name}")
+async def update_job(job_name: str, body: JobConfigUpdate) -> dict[str, Any]:
+    """更新调度任务配置（interval_seconds/enabled，即时热生效）。"""
+    from app.scheduler.scheduler import get_scheduler
+
+    if body.interval_seconds is None and body.enabled is None:
+        return err("EMPTY_BODY", "至少提供 interval_seconds 或 enabled 之一", status=400)
+    if body.interval_seconds is not None and body.interval_seconds <= 0:
+        return err("INVALID_INTERVAL", "interval_seconds 必须为正数", status=400)
+
+    try:
+        sched = get_scheduler()
+        registered = {t["name"] for t in sched.list_tasks()}
+        if job_name not in registered:
+            return err("NOT_FOUND", f"任务不存在: {job_name}", status=404)
+
+        if body.interval_seconds is not None:
+            await sched.update_interval(job_name, body.interval_seconds)
+        if body.enabled is not None:
+            await sched.set_enabled(job_name, body.enabled)
+
+        task = next((t for t in sched.list_tasks() if t["name"] == job_name), None)
+        return ok({"job_name": job_name, "task": task, "updated": True})
+    except KeyError as e:
+        return err("NOT_FOUND", str(e), status=404)
+    except Exception as e:  # noqa: BLE001
+        logger.exception("更新任务 {} 配置失败: {}", job_name, e)
+        return err("DB_ERROR", f"更新任务配置失败: {e}", status=503)
+
+
 @router.post("/jobs/{job_id}/run")
 async def run_job(job_id: UUID):
-    """手动触发任务（MVP：登记 next_run_at 状态，实际执行由 Scheduler 完成）。"""
+    """手动触发任务：后台执行 run_once（绕过间隔立即跑一轮），返回 202。"""
     from app.models import SystemJob
 
     try:
@@ -281,19 +370,28 @@ async def run_job(job_id: UUID):
                 return err("NOT_FOUND", f"任务不存在: {job_id}", status=404)
             if not job.is_enabled:
                 return err("JOB_DISABLED", f"任务已禁用: {job.job_name}", status=409)
-
-            now = datetime.now(UTC)
-            job.next_run_at = now
             job_name = job.job_name
 
-        logger.info(f"Manual trigger registered for job '{job_name}' (next_run_at=now)")
-        return ok(
-            {
-                "job_id": str(job_id),
-                "job_name": job_name,
-                "queued": True,
-                "note": "已登记立即执行，实际执行由 Scheduler 在下个调度周期完成",
-            }
+        from app.scheduler.scheduler import get_scheduler
+
+        sched = get_scheduler()
+        registered = {t["name"] for t in sched.list_tasks()}
+        if job_name not in registered:
+            return err("NOT_FOUND", f"任务未在调度器注册: {job_name}", status=404)
+
+        # 后台执行（不阻塞请求）；执行结果由 run_once 写回 system_jobs
+        asyncio.create_task(sched.run_once(job_name))
+        logger.info(f"Manual trigger dispatched for job '{job_name}'")
+        return JSONResponse(
+            status_code=202,
+            content=ok(
+                {
+                    "job_id": str(job_id),
+                    "job_name": job_name,
+                    "queued": True,
+                    "note": "任务已在后台执行，结果将写回 system_jobs",
+                }
+            ),
         )
     except Exception as e:  # noqa: BLE001
         return err("DB_ERROR", f"触发任务失败: {e}", status=503)

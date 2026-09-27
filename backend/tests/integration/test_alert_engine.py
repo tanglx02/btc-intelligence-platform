@@ -430,8 +430,17 @@ class TestCooldownManager:
         ok, reason = await mgr.can_trigger(rule)
         assert ok and reason is None
 
-    async def test_rate_limit_user_level(self):
+    async def test_rate_limit_user_level(self, monkeypatch):
         """用户级每小时限流（内存降级模式）。"""
+        # 隔离配置中心：alert.max_per_hour 可能经 env 回退覆盖构造值（热生效语义）
+        class _NoOverrideSvc:
+            def get_sync(self, key, default=None):
+                return default
+
+        monkeypatch.setattr(
+            "app.services.settings_service._settings_service", _NoOverrideSvc()
+        )
+
         mgr = CooldownManager(hourly_limit=3)
         uid = uuid4()
         assert await mgr.check_rate_limit(uid) is True

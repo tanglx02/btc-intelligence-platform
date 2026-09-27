@@ -97,3 +97,6 @@ temp/
 *.tmp
 *.bak
 .cache/
+
+# 数据库备份 dump 不入库（仅随交接包分发）
+db_backup/*.dump

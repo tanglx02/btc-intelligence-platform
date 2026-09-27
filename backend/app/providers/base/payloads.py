@@ -18,11 +18,11 @@
 3. 可选字段缺失时不强制填充 None，载荷更紧凑
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from app.providers.base.types import ErrorType, FetchResult, QualityStatus
-
+from app.utils.datetime_utils import utcnow
 
 # ---- 失败结果构造 ----
 
@@ -53,20 +53,20 @@ def auth_required_result(provider_name: str, detail: str = "") -> FetchResult:
 
 
 def utc_now() -> datetime:
-    """当前 UTC 时间（naive，与项目其余部分保持一致）。"""
-    return datetime.utcnow()
+    """当前 UTC 时间（aware，与项目其余部分保持一致）。"""
+    return utcnow()
 
 
 def from_unix(ts: int | float | None) -> datetime | None:
     """Unix 时间戳（秒）转 naive UTC datetime。"""
     if ts is None:
         return None
-    return datetime.fromtimestamp(float(ts), tz=timezone.utc).replace(tzinfo=None)
+    return datetime.fromtimestamp(float(ts), tz=UTC).replace(tzinfo=None)
 
 
 def to_unix(dt: datetime) -> int:
     """naive UTC datetime 转 Unix 时间戳（秒）。"""
-    return int(dt.replace(tzinfo=timezone.utc).timestamp())
+    return int(dt.replace(tzinfo=UTC).timestamp())
 
 
 def to_iso(dt: datetime | None) -> str | None:

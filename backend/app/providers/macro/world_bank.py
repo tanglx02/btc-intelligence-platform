@@ -29,6 +29,7 @@ from app.providers.base.types import (
     ProviderMetadata,
     QualityStatus,
 )
+from app.utils.datetime_utils import utcnow
 
 # 指标 key -> (indicator code, 单位, 频率说明)
 _INDICATORS: dict[str, tuple[str, str, str]] = {
@@ -214,7 +215,7 @@ class WorldBankProvider(BaseMacroProvider):
                 },
             ),
             provider_name=self.name,
-            fetch_time=datetime.utcnow(),
+            fetch_time=utcnow(),
             observation_time=chosen["observation_date"],
             # 缺少 release_date，回测使用需谨慎，降级为 ESTIMATED
             quality_status=QualityStatus.ESTIMATED,
@@ -334,7 +335,7 @@ class WorldBankProvider(BaseMacroProvider):
             success=True,
             data=series,
             provider_name=self.name,
-            fetch_time=datetime.utcnow(),
+            fetch_time=utcnow(),
             observation_time=points[-1]["observation_date"],
             quality_status=QualityStatus.ESTIMATED,
             raw_response=result.raw_response,

@@ -12,7 +12,7 @@ API: https://api.glassnode.com/v1/metrics/{endpoint}
 - 交易所流：Netflow / Inflow / Outflow / Exchange Reserve
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from loguru import logger
@@ -31,6 +31,7 @@ from app.providers.base.types import (
     ProviderMetadata,
     QualityStatus,
 )
+from app.utils.datetime_utils import utcnow
 
 # 指标 key -> (API endpoint, 单位)
 # endpoint 相对于 base_url（https://api.glassnode.com/v1）
@@ -242,7 +243,7 @@ class GlassnodeProvider(BaseOnChainProvider):
                 extra={"cohort": chosen.get("cohort")} if chosen.get("cohort") else None,
             ),
             provider_name=self.name,
-            fetch_time=datetime.utcnow(),
+            fetch_time=utcnow(),
             observation_time=chosen["t"],
             quality_status=QualityStatus.VERIFIED,
             raw_response=result.raw_response,
@@ -309,7 +310,7 @@ class GlassnodeProvider(BaseOnChainProvider):
             success=True,
             data=data,
             provider_name=self.name,
-            fetch_time=datetime.utcnow(),
+            fetch_time=utcnow(),
             observation_time=profit.observation_time or loss.observation_time,
             quality_status=QualityStatus.VERIFIED,
             metadata={"unit": "usd"},
@@ -337,7 +338,7 @@ class GlassnodeProvider(BaseOnChainProvider):
             success=True,
             data=data,
             provider_name=self.name,
-            fetch_time=datetime.utcnow(),
+            fetch_time=utcnow(),
             observation_time=lth.observation_time or sth.observation_time,
             quality_status=QualityStatus.VERIFIED,
             metadata={"unit": "btc"},
@@ -415,8 +416,8 @@ class GlassnodeProvider(BaseOnChainProvider):
             return unsupported_result(self.name, metric)
         endpoint, unit = spec
 
-        start_utc = start.astimezone(timezone.utc).replace(tzinfo=None) if start.tzinfo else start
-        end_utc = end.astimezone(timezone.utc).replace(tzinfo=None) if end.tzinfo else end
+        start_utc = start.astimezone(UTC).replace(tzinfo=None) if start.tzinfo else start
+        end_utc = end.astimezone(UTC).replace(tzinfo=None) if end.tzinfo else end
 
         result = await self._fetch_raw(endpoint, start=start_utc, end=end_utc)
         if not result.success:
@@ -446,7 +447,7 @@ class GlassnodeProvider(BaseOnChainProvider):
                 metric, series, unit=unit, resolution=self._resolution(), source=self.name
             ),
             provider_name=self.name,
-            fetch_time=datetime.utcnow(),
+            fetch_time=utcnow(),
             observation_time=points[-1]["t"],
             quality_status=QualityStatus.VERIFIED,
             raw_response=result.raw_response,

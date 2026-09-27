@@ -21,6 +21,7 @@ from app.providers.base.types import (
     QualityStatus,
 )
 from app.providers.derivatives.coinglass import CoinglassProvider
+from app.utils.datetime_utils import utcnow
 
 
 def _to_float(value: Any) -> float | None:
@@ -128,7 +129,7 @@ class CoinglassOptionsProvider(CoinglassProvider):
                 provider_name=self.name,
             )
 
-        fetch_ts = datetime.utcnow()
+        fetch_ts = utcnow()
         return FetchResult(
             success=True,
             data=options_payload(
@@ -188,7 +189,7 @@ class CoinglassOptionsProvider(CoinglassProvider):
                 provider_name=self.name,
             )
 
-        fetch_ts = datetime.utcnow()
+        fetch_ts = utcnow()
         return FetchResult(
             success=True,
             data=options_payload(

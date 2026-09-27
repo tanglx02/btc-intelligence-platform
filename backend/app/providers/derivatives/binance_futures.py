@@ -21,6 +21,7 @@ from app.providers.base.types import (
     ProviderMetadata,
     QualityStatus,
 )
+from app.utils.datetime_utils import utcnow
 
 # period -> Binance interval 映射
 _INTERVAL_MAP = {
@@ -110,7 +111,7 @@ class BinanceFuturesProvider(BaseDerivativeProvider):
                     source=self.name,
                 ),
                 provider_name=self.name,
-                fetch_time=datetime.utcnow(),
+                fetch_time=utcnow(),
                 observation_time=self._ts_from_ms(raw.get("time")),
                 quality_status=QualityStatus.VERIFIED,
                 raw_response=result.raw_response,
@@ -148,7 +149,7 @@ class BinanceFuturesProvider(BaseDerivativeProvider):
                 "funding", symbol, timestamp=last_ts, source=self.name, history=series
             ),
             provider_name=self.name,
-            fetch_time=datetime.utcnow(),
+            fetch_time=utcnow(),
             observation_time=last_ts,
             quality_status=QualityStatus.VERIFIED,
             raw_response=result.raw_response,
@@ -197,7 +198,7 @@ class BinanceFuturesProvider(BaseDerivativeProvider):
                 source=self.name,
             ),
             provider_name=self.name,
-            fetch_time=datetime.utcnow(),
+            fetch_time=utcnow(),
             observation_time=ts,
             quality_status=QualityStatus.VERIFIED,
             raw_response=oi_result.raw_response,
@@ -257,12 +258,12 @@ class BinanceFuturesProvider(BaseDerivativeProvider):
                 short_liquidation_vol=short_vol,
                 long_liquidation_count=long_count,
                 short_liquidation_count=short_count,
-                timestamp=datetime.utcnow(),
+                timestamp=utcnow(),
                 source=self.name,
             ),
             provider_name=self.name,
-            fetch_time=datetime.utcnow(),
-            observation_time=datetime.utcnow(),
+            fetch_time=utcnow(),
+            observation_time=utcnow(),
             quality_status=QualityStatus.ESTIMATED,  # 仅统计返回窗口内的订单
             raw_response=result.raw_response,
             status_code=result.status_code,
@@ -300,7 +301,7 @@ class BinanceFuturesProvider(BaseDerivativeProvider):
                 source=self.name,
             ),
             provider_name=self.name,
-            fetch_time=datetime.utcnow(),
+            fetch_time=utcnow(),
             observation_time=ts,
             quality_status=QualityStatus.VERIFIED,
             raw_response=result.raw_response,
@@ -340,7 +341,7 @@ class BinanceFuturesProvider(BaseDerivativeProvider):
                 source=self.name,
             ),
             provider_name=self.name,
-            fetch_time=datetime.utcnow(),
+            fetch_time=utcnow(),
             observation_time=ts,
             quality_status=QualityStatus.VERIFIED,
             raw_response=result.raw_response,
@@ -398,7 +399,7 @@ class BinanceFuturesProvider(BaseDerivativeProvider):
                 source=self.name,
             ),
             provider_name=self.name,
-            fetch_time=datetime.utcnow(),
+            fetch_time=utcnow(),
             observation_time=ts,
             quality_status=QualityStatus.VERIFIED,
             raw_response=result.raw_response,
@@ -454,7 +455,7 @@ class BinanceFuturesProvider(BaseDerivativeProvider):
                 history=series,
             ),
             provider_name=self.name,
-            fetch_time=datetime.utcnow(),
+            fetch_time=utcnow(),
             observation_time=last_ts,
             quality_status=QualityStatus.ESTIMATED,  # 窗口内累计，非全历史 CVD
             raw_response=result.raw_response,

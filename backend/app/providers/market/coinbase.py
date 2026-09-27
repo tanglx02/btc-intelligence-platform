@@ -25,6 +25,7 @@ from app.providers.base.types import (
 )
 from app.providers.market._helpers import (
     BTC_CIRCULATING_SUPPLY,
+    as_naive_utc,
     data_error_result,
     empty_result,
     parse_error_result,
@@ -552,10 +553,10 @@ class CoinbaseProvider(BaseMarketProvider):
         if not all_candles:
             return empty_result(self.name, f"批量K线为空: {product_id} {interval}")
 
-        # 去重（按 timestamp）+ 范围过滤 + 升序排序
+        # 去重（按 timestamp）+ 范围过滤 + 升序排序（边界统一为 naive）
         deduped: dict[datetime, Candle] = {}
         for c in all_candles:
-            if start <= c.timestamp < end:
+            if as_naive_utc(start) <= c.timestamp < as_naive_utc(end):
                 deduped[c.timestamp] = c
         final = [deduped[k] for k in sorted(deduped)]
 

@@ -23,6 +23,7 @@ from app.providers.base.types import (
     ProviderMetadata,
     QualityStatus,
 )
+from app.utils.datetime_utils import utcnow
 
 # 微型缓存 TTL（book summary 被多个方法复用）
 _CACHE_TTL = 60.0
@@ -195,7 +196,7 @@ class DeribitProvider(BaseOptionsProvider):
                 index_price = row.get("underlying_price")
             total_usd += oi * float(row.get("underlying_price") or 0.0)
 
-        ts = datetime.utcnow()
+        ts = utcnow()
         return FetchResult(
             success=True,
             data=options_payload(
@@ -242,7 +243,7 @@ class DeribitProvider(BaseOptionsProvider):
             else:
                 put_vol += vol
 
-        ts = datetime.utcnow()
+        ts = utcnow()
         return FetchResult(
             success=True,
             data=options_payload(
@@ -311,8 +312,8 @@ class DeribitProvider(BaseOptionsProvider):
         # DVOL 指数
         bvol30 = await self._get(
             "/public/get_volatility_index_data",
-            {"currency": base, "start_timestamp": int((datetime.utcnow() - timedelta(minutes=5)).timestamp() * 1000),
-             "end_timestamp": int(datetime.utcnow().timestamp() * 1000), "resolution": "60"},
+            {"currency": base, "start_timestamp": int((utcnow() - timedelta(minutes=5)).timestamp() * 1000),
+             "end_timestamp": int(utcnow().timestamp() * 1000), "resolution": "60"},
         )
         dvol_value: float | None = None
         if bvol30.success and isinstance(bvol30.data, dict):
@@ -322,7 +323,7 @@ class DeribitProvider(BaseOptionsProvider):
                 if isinstance(last, list) and len(last) >= 5:
                     dvol_value = float(last[4])  # [start, high, low, open, close]
 
-        ts = datetime.utcnow()
+        ts = utcnow()
         return FetchResult(
             success=True,
             data=options_payload(
@@ -362,7 +363,7 @@ class DeribitProvider(BaseOptionsProvider):
         oi_ratio = put_oi / call_oi if call_oi else None
         vol_ratio = put_vol / call_vol if call_vol else None
 
-        ts = datetime.utcnow()
+        ts = utcnow()
         return FetchResult(
             success=True,
             data=options_payload(
@@ -440,7 +441,7 @@ class DeribitProvider(BaseOptionsProvider):
             else None
         )
 
-        ts = datetime.utcnow()
+        ts = utcnow()
         return FetchResult(
             success=True,
             data=options_payload(
@@ -510,7 +511,7 @@ class DeribitProvider(BaseOptionsProvider):
             expiry_key = parsed["expiry"].strftime("%Y-%m-%d")
             gex_by_expiry[expiry_key] = gex_by_expiry.get(expiry_key, 0.0) + gex
 
-        ts = datetime.utcnow()
+        ts = utcnow()
         return FetchResult(
             success=True,
             data=options_payload(
@@ -580,7 +581,7 @@ class DeribitProvider(BaseOptionsProvider):
                 entry["open_interest"] = oi_by_expiry[key]
 
         expiry_list = sorted(expiries.values(), key=lambda e: e["expiry"])
-        ts = datetime.utcnow()
+        ts = utcnow()
         return FetchResult(
             success=True,
             data=options_payload(

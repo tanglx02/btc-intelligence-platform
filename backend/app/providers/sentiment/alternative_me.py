@@ -13,7 +13,7 @@ API: https://api.alternative.me/fng/
 标记为 UNSUPPORTED，由 Failover 切换到 LunarCrush。
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from app.providers.base.payloads import sentiment_payload, unsupported_result
@@ -24,6 +24,7 @@ from app.providers.base.types import (
     ProviderMetadata,
     QualityStatus,
 )
+from app.utils.datetime_utils import utcnow
 
 # value_classification -> 标准情绪标签
 _LABEL_MAP = {
@@ -41,7 +42,7 @@ def _ts_to_dt(ts: Any) -> datetime | None:
         num = float(ts)
     except (TypeError, ValueError):
         return None
-    return datetime.fromtimestamp(num, tz=timezone.utc).replace(tzinfo=None)
+    return datetime.fromtimestamp(num, tz=UTC).replace(tzinfo=None)
 
 
 class AlternativeMeProvider(BaseSentimentProvider):
@@ -140,7 +141,7 @@ class AlternativeMeProvider(BaseSentimentProvider):
                 )
             chosen = eligible[-1]
 
-        obs_time = chosen["timestamp"] or datetime.utcnow()
+        obs_time = chosen["timestamp"] or utcnow()
         return FetchResult(
             success=True,
             data=sentiment_payload(
@@ -152,7 +153,7 @@ class AlternativeMeProvider(BaseSentimentProvider):
                 extra={"label_raw": chosen["label_raw"], "range": "0-100"},
             ),
             provider_name=self.name,
-            fetch_time=datetime.utcnow(),
+            fetch_time=utcnow(),
             observation_time=obs_time,
             quality_status=QualityStatus.VERIFIED,
             raw_response=result.raw_response,
@@ -210,7 +211,7 @@ class AlternativeMeProvider(BaseSentimentProvider):
             success=True,
             data=series,
             provider_name=self.name,
-            fetch_time=datetime.utcnow(),
+            fetch_time=utcnow(),
             observation_time=points[-1]["timestamp"] if points else None,
             quality_status=QualityStatus.VERIFIED,
             raw_response=result.raw_response,

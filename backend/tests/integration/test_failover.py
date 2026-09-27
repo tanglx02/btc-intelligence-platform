@@ -7,7 +7,8 @@
   * 主 Provider 失败 -> 备用自动接管（is_failover 标记 + 事件记录）；
   * 全部 Provider 失败 -> 有缓存返回 STALE 数据（绝不生成假数据）、无缓存返回 INVALID；
   * 不可用 Provider 跳过、方法缺失跳过、异常兜底 UNKNOWN 分类；
-- FailoverEngine.fetch_with_failover：重试次数、标记离线、防抖冷却跳过；
+- FailoverEngine.fetch_with_failover：重试次数、RATE_LIMIT 重试耗尽后不切换、
+  标记离线、防抖冷却跳过；
 - Recovery Threshold：连续成功 N 次探测恢复 Primary，失败重置 + 指数退避；
 - AntiFlappingGuard：观察窗口、冷却期、指数退避、上限、重置。
 """
@@ -16,7 +17,7 @@ from __future__ import annotations
 
 import socket
 import ssl
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import httpx
 import pytest
@@ -41,6 +42,7 @@ from app.providers.failover import (
 )
 from app.providers.manager import ProviderManager
 from app.providers.network import NetworkErrorClassifier
+from app.utils.datetime_utils import utcnow
 
 
 class StubProvider(BaseProvider):
@@ -451,8 +453,8 @@ class TestFailoverEngineFetch:
         # 超时不在离线标记集合
         assert primary.status == ProviderLifecycleStatus.READY
 
-    async def test_rate_limit_retries_twice_then_fails_over(self, registry, engine):
-        """429 限流：重试 2 次（共 3 次调用）后切换备用；不标记离线。"""
+    async def test_rate_limit_retries_twice_no_failover(self, registry, engine):
+        """429 限流：重试 2 次（共 3 次调用）后直接返回失败，不切换备用；不标记离线。"""
         primary = StubProvider("primary", priority=10, fail_with=ErrorType.RATE_LIMIT)
         self._fast_retry(primary)
         secondary = StubProvider("secondary", priority=20)
@@ -461,8 +463,12 @@ class TestFailoverEngineFetch:
 
         result = await engine.fetch_with_failover("market", "get_current_price")
 
-        assert result.provider_name == "secondary"
-        assert primary.call_count == 3
+        # RATE_LIMIT 策略 failover=False：重试耗尽后直接失败，不再尝试下一个 Provider
+        assert result.success is False
+        assert result.provider_name == "primary"
+        assert result.error_type == ErrorType.RATE_LIMIT
+        assert primary.call_count == 3  # 初始 1 次 + 重试 2 次
+        assert secondary.call_count == 0  # 不切换备用
         assert primary.status == ProviderLifecycleStatus.READY
 
     async def test_all_failed_returns_last_error(self, registry, engine):
@@ -514,7 +520,7 @@ class TestFailoverEngineFetch:
         registry.register(secondary)
 
         # 手动注入冷却期
-        engine._anti_flapping._cooldown["primary"] = datetime.utcnow() + timedelta(
+        engine._anti_flapping._cooldown["primary"] = utcnow() + timedelta(
             seconds=300
         )
 
@@ -658,14 +664,14 @@ class TestAntiFlappingGuard:
         guard.record_state_change("a")
         guard.record_state_change("a")  # flap=3 -> 300 * 2^2 = 1200s
         assert guard.get_flap_count("a") == 3
-        remaining = (guard._cooldown["a"] - datetime.utcnow()).total_seconds()
+        remaining = (guard._cooldown["a"] - utcnow()).total_seconds()
         assert 1100 <= remaining <= 1200
 
     def test_cooldown_capped_at_max(self):
         guard = self._guard()
         for _ in range(12):
             guard.record_state_change("a")
-        remaining = (guard._cooldown["a"] - datetime.utcnow()).total_seconds()
+        remaining = (guard._cooldown["a"] - utcnow()).total_seconds()
         assert remaining <= 3600  # 不超过 max_cooldown
 
     def test_reset_flap_count_clears_cooldown(self):
@@ -678,5 +684,5 @@ class TestAntiFlappingGuard:
 
     def test_cooldown_expires(self):
         guard = self._guard()
-        guard._cooldown["a"] = datetime.utcnow() - timedelta(seconds=1)
+        guard._cooldown["a"] = utcnow() - timedelta(seconds=1)
         assert guard.is_in_cooldown("a") is False

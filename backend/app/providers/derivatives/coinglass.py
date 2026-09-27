@@ -24,6 +24,7 @@ from app.providers.base.types import (
     ProviderMetadata,
     QualityStatus,
 )
+from app.utils.datetime_utils import utcnow
 
 
 def _normalize_symbol(symbol: str) -> str:
@@ -189,7 +190,7 @@ class CoinglassProvider(BaseDerivativeProvider):
                 ] or None,
             ),
             provider_name=self.name,
-            fetch_time=datetime.utcnow(),
+            fetch_time=utcnow(),
             observation_time=ts,
             quality_status=QualityStatus.VERIFIED,
             raw_response=raw.raw_response if raw else None,
@@ -238,7 +239,7 @@ class CoinglassProvider(BaseDerivativeProvider):
                 provider_name=self.name,
             )
 
-        ts = datetime.utcnow()
+        ts = utcnow()
         return FetchResult(
             success=True,
             data=derivative_payload(
@@ -295,8 +296,8 @@ class CoinglassProvider(BaseDerivativeProvider):
                 source=self.name,
             ),
             provider_name=self.name,
-            fetch_time=datetime.utcnow(),
-            observation_time=ts or datetime.utcnow(),
+            fetch_time=utcnow(),
+            observation_time=ts or utcnow(),
             quality_status=QualityStatus.VERIFIED,
             raw_response=raw.raw_response if raw else None,
             status_code=raw.status_code if raw else None,
@@ -335,8 +336,8 @@ class CoinglassProvider(BaseDerivativeProvider):
                 source=self.name,
             ),
             provider_name=self.name,
-            fetch_time=datetime.utcnow(),
-            observation_time=ts or datetime.utcnow(),
+            fetch_time=utcnow(),
+            observation_time=ts or utcnow(),
             quality_status=QualityStatus.VERIFIED,
             raw_response=raw.raw_response if raw else None,
             status_code=raw.status_code if raw else None,
@@ -377,8 +378,8 @@ class CoinglassProvider(BaseDerivativeProvider):
                 source=self.name,
             ),
             provider_name=self.name,
-            fetch_time=datetime.utcnow(),
-            observation_time=ts or datetime.utcnow(),
+            fetch_time=utcnow(),
+            observation_time=ts or utcnow(),
             quality_status=QualityStatus.VERIFIED,
             raw_response=raw.raw_response if raw else None,
             status_code=raw.status_code if raw else None,
@@ -418,8 +419,8 @@ class CoinglassProvider(BaseDerivativeProvider):
                 source=self.name,
             ),
             provider_name=self.name,
-            fetch_time=datetime.utcnow(),
-            observation_time=ts or datetime.utcnow(),
+            fetch_time=utcnow(),
+            observation_time=ts or utcnow(),
             quality_status=QualityStatus.VERIFIED,
             raw_response=raw.raw_response if raw else None,
             status_code=raw.status_code if raw else None,

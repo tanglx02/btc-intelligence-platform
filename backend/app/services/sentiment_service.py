@@ -20,6 +20,7 @@ from app.providers.base.types import QualityStatus
 from app.providers.manager import ProviderManager
 from app.services.base_service import CategoryServiceBase
 from app.services.provider_service import ServiceResult
+from app.utils.datetime_utils import utcnow
 
 _FEAR_GREED_CACHE_TTL = 1800
 _SOCIAL_CACHE_TTL = 300
@@ -77,7 +78,7 @@ class SentimentService(CategoryServiceBase):
                 data=local,
                 quality_status=QualityStatus.VERIFIED,
                 source="local_db",
-                fetch_time=datetime.utcnow(),
+                fetch_time=utcnow(),
                 metadata={"local_first": True, "count": len(local)},
             )
         return await self.get_data(

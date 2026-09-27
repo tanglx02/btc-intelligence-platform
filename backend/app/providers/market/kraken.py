@@ -26,6 +26,7 @@ from app.providers.base.types import (
 )
 from app.providers.market._helpers import (
     BTC_CIRCULATING_SUPPLY,
+    as_naive_utc,
     data_error_result,
     datetime_to_sec,
     empty_result,
@@ -160,7 +161,7 @@ class KrakenProvider(BaseMarketProvider):
                 self.name, f"不支持的K线间隔: {interval}（可用: {sorted(KRAKEN_INTERVALS)}）"
             )
 
-        effective_end = end or utcnow()
+        effective_end = as_naive_utc(end or utcnow())
         params: dict = {"pair": pair, "interval": kraken_interval}
         if start:
             params["since"] = datetime_to_sec(start)
@@ -185,10 +186,9 @@ class KrakenProvider(BaseMarketProvider):
         if not candles:
             return empty_result(self.name, "OHLC 返回为空", raw=result.data)
 
-        # 范围过滤 + 截断（保留最近的）
-        start_boundary = start or (
-            effective_end - timedelta(seconds=kraken_interval * 60 * min(limit, _MAX_CANDLES))
-        )
+        # 范围过滤 + 截断（保留最近的）；边界统一为 naive（candle.timestamp 为 naive UTC）
+        window = timedelta(seconds=kraken_interval * 60 * min(limit, _MAX_CANDLES))
+        start_boundary = as_naive_utc(start) if start else effective_end - window
         candles = [c for c in candles if start_boundary <= c.timestamp <= effective_end]
         if len(candles) > limit:
             candles = candles[-limit:]

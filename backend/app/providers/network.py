@@ -11,7 +11,6 @@ import asyncio
 import random
 import socket
 import time
-from datetime import datetime
 from typing import Any
 
 import httpx
@@ -19,6 +18,7 @@ from loguru import logger
 
 from app.providers.base.config import ProviderConfig
 from app.providers.base.types import ErrorType, FetchResult
+from app.utils.datetime_utils import utcnow
 
 
 class NetworkErrorClassifier:
@@ -309,7 +309,7 @@ class HTTPClient:
                         status_code=response.status_code,
                         response_time_ms=elapsed_ms,
                         provider_name=self._config.name,
-                        fetch_time=datetime.utcnow(),
+                        fetch_time=utcnow(),
                     )
 
                 # 请求成功
@@ -329,7 +329,7 @@ class HTTPClient:
                     status_code=response.status_code,
                     response_time_ms=elapsed_ms,
                     provider_name=self._config.name,
-                    fetch_time=datetime.utcnow(),
+                    fetch_time=utcnow(),
                     raw_response=response_data,
                 )
 
@@ -381,7 +381,7 @@ class HTTPClient:
             status_code=last_status_code,
             response_time_ms=0.0,
             provider_name=self._config.name,
-            fetch_time=datetime.utcnow(),
+            fetch_time=utcnow(),
         )
 
     @staticmethod

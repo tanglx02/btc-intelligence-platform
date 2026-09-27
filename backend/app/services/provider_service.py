@@ -29,6 +29,7 @@ from app.providers.base.types import (
 from app.providers.failover import FailoverEngine
 from app.providers.health_monitor import HealthMonitor
 from app.providers.manager import ProviderManager
+from app.utils.datetime_utils import utcnow
 
 
 @dataclass
@@ -59,7 +60,7 @@ class ServiceResult:
     is_stale: bool = False
     is_cached: bool = False
     observation_time: datetime | None = None
-    fetch_time: datetime = field(default_factory=datetime.utcnow)
+    fetch_time: datetime = field(default_factory=utcnow)
     response_time_ms: float = 0.0
     error: str | None = None
     error_type: ErrorType | None = None
@@ -277,7 +278,7 @@ class ProviderService:
         Returns:
             ServiceResult 统一业务结果
         """
-        started = datetime.utcnow()
+        started = utcnow()
         data_type = data_type or f"{category}:{method}"
         cache_key = self._build_cache_key(data_type, kwargs)
 
@@ -450,7 +451,7 @@ class ProviderService:
                 "quality_status": result.quality_status.value,
                 "is_failover": result.is_failover,
                 "metadata": result.metadata,
-                "cached_at": datetime.utcnow().isoformat(),
+                "cached_at": utcnow().isoformat(),
             }
             await self._redis.set(key, json.dumps(payload, default=str), ex=ttl)
         except (TypeError, ValueError) as e:
@@ -485,7 +486,7 @@ class ProviderService:
     @staticmethod
     def _elapsed_ms(started: datetime) -> float:
         """计算自 started 起的耗时（毫秒）。"""
-        return (datetime.utcnow() - started).total_seconds() * 1000
+        return (utcnow() - started).total_seconds() * 1000
 
 
 # ---- 全局单例（依赖注入入口）----

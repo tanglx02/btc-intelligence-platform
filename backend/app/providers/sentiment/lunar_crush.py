@@ -28,6 +28,7 @@ from app.providers.base.types import (
     ProviderMetadata,
     QualityStatus,
 )
+from app.utils.datetime_utils import utcnow
 
 
 def _to_float(value: Any) -> float | None:
@@ -126,7 +127,7 @@ class LunarCrushProvider(BaseSentimentProvider):
                 status_code=result.status_code,
             )
 
-        ts = datetime.utcnow()
+        ts = utcnow()
         return FetchResult(
             success=True,
             data=sentiment_payload(
@@ -178,7 +179,7 @@ class LunarCrushProvider(BaseSentimentProvider):
                 status_code=result.status_code,
             )
 
-        ts = datetime.utcnow()
+        ts = utcnow()
         return FetchResult(
             success=True,
             data=sentiment_payload(

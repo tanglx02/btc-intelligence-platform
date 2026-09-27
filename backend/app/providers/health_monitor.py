@@ -26,6 +26,7 @@ from app.providers.base.types import (
     ProviderLifecycleStatus,
     ProviderMetrics,
 )
+from app.utils.datetime_utils import utcnow
 
 
 @dataclass
@@ -69,7 +70,7 @@ class WeightedMovingAverage:
 
     def add(self, value: float, timestamp: datetime | None = None) -> None:
         """添加数据点。"""
-        ts = timestamp or datetime.utcnow()
+        ts = timestamp or utcnow()
         self._values.append((ts, value))
         if len(self._values) > self.window_size:
             self._values.pop(0)
@@ -383,7 +384,7 @@ class HealthMonitor:
 
     def _update_score_with_decay(self, provider_name: str, new_score: float) -> float:
         """应用时间衰减更新最终评分。"""
-        now = datetime.utcnow()
+        now = utcnow()
 
         if provider_name not in self._score_states:
             self._score_states[provider_name] = ProviderScoreState(

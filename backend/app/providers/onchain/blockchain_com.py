@@ -10,7 +10,7 @@ API: https://api.blockchain.info/charts/{chart-name}
 统一返回 unsupported（由 Failover 切换到 Glassnode / CryptoQuant）。
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from loguru import logger
 
@@ -28,6 +28,7 @@ from app.providers.base.types import (
     ProviderMetadata,
     QualityStatus,
 )
+from app.utils.datetime_utils import utcnow
 
 # chart-name -> (指标名, 单位, 值缩放系数)
 _CHARTS: dict[str, tuple[str, str, float]] = {
@@ -161,7 +162,7 @@ class BlockchainComProvider(BaseOnChainProvider):
                     metric_key, series, unit=unit, resolution="1d", source=self.name
                 ),
                 provider_name=self.name,
-                fetch_time=datetime.utcnow(),
+                fetch_time=utcnow(),
                 observation_time=points[-1]["t"],
                 quality_status=QualityStatus.VERIFIED,
                 raw_response=result.raw_response,
@@ -198,7 +199,7 @@ class BlockchainComProvider(BaseOnChainProvider):
                 source=self.name,
             ),
             provider_name=self.name,
-            fetch_time=datetime.utcnow(),
+            fetch_time=utcnow(),
             observation_time=chosen["t"],
             quality_status=QualityStatus.VERIFIED,
             raw_response=result.raw_response,
@@ -316,8 +317,8 @@ class BlockchainComProvider(BaseOnChainProvider):
         if not chart or metric in _UNSUPPORTED:
             return self._unsupported(metric)
 
-        start_utc = start.astimezone(timezone.utc).replace(tzinfo=None) if start.tzinfo else start
-        end_utc = end.astimezone(timezone.utc).replace(tzinfo=None) if end.tzinfo else end
+        start_utc = start.astimezone(UTC).replace(tzinfo=None) if start.tzinfo else start
+        end_utc = end.astimezone(UTC).replace(tzinfo=None) if end.tzinfo else end
 
         result = await self._fetch_chart(
             metric, chart, start=start_utc, end=end_utc, as_history=True

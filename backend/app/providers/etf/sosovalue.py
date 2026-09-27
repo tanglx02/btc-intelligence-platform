@@ -31,6 +31,7 @@ from app.providers.base.types import (
     ProviderMetadata,
     QualityStatus,
 )
+from app.utils.datetime_utils import utcnow
 
 _CACHE_TTL = 1800.0
 _PERIOD_KEYS = {
@@ -220,7 +221,7 @@ class SoSoValueProvider(BaseETFProvider):
             success=True,
             data=payload,
             provider_name=self.name,
-            fetch_time=datetime.utcnow(),
+            fetch_time=utcnow(),
             observation_time=funds[0]["date"],
             quality_status=QualityStatus.VERIFIED,
             metadata={"unit": "usd", "funds": len(payload)},
@@ -261,7 +262,7 @@ class SoSoValueProvider(BaseETFProvider):
             if end_date:
                 boundary = end_date.replace(hour=0, minute=0, second=0, microsecond=0)
                 funds = [f for f in funds if f["date"] and f["date"] <= boundary]
-            cutoff = datetime.utcnow() - timedelta(days=days)
+            cutoff = utcnow() - timedelta(days=days)
             recent = [
                 f["daily_net_flow"]
                 for f in funds
@@ -289,7 +290,7 @@ class SoSoValueProvider(BaseETFProvider):
             success=True,
             data=payload,
             provider_name=self.name,
-            fetch_time=datetime.utcnow(),
+            fetch_time=utcnow(),
             observation_time=end_date,
             quality_status=QualityStatus.VERIFIED,
             metadata={"unit": "usd", "period": period},
@@ -346,7 +347,7 @@ class SoSoValueProvider(BaseETFProvider):
             success=True,
             data=payload,
             provider_name=self.name,
-            fetch_time=datetime.utcnow(),
+            fetch_time=utcnow(),
             observation_time=max(daily.keys()) if daily else None,
             quality_status=QualityStatus.VERIFIED,
             metadata={"unit": "usd", "baseline_usd": baseline, "points": len(payload)},
@@ -391,7 +392,7 @@ class SoSoValueProvider(BaseETFProvider):
             success=True,
             data=payload,
             provider_name=self.name,
-            fetch_time=datetime.utcnow(),
+            fetch_time=utcnow(),
             observation_time=date,
             quality_status=QualityStatus.VERIFIED,
             metadata={"unit_btc": "btc", "total_holdings_btc": total_btc, "funds": len(payload)},

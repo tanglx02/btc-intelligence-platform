@@ -11,7 +11,7 @@ API: https://api.cryptoquant.com/v1/btc/{group}/{metric}
 - 鲸鱼：Whale Alert / 大额转账比率
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from app.providers.base.onchain_provider import BaseOnChainProvider
@@ -27,6 +27,7 @@ from app.providers.base.types import (
     ProviderMetadata,
     QualityStatus,
 )
+from app.utils.datetime_utils import utcnow
 
 # 指标 key -> (endpoint group/path, 单位, 数据形态)
 # 数据形态: "metric" 标量指标 / "flow" 资金流
@@ -65,7 +66,7 @@ def _parse_iso_date(value: str | None) -> datetime | None:
         text = value.replace("Z", "+00:00")
         dt = datetime.fromisoformat(text)
         if dt.tzinfo is not None:
-            dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+            dt = dt.astimezone(UTC).replace(tzinfo=None)
         return dt
     except ValueError:
         return None
@@ -200,7 +201,7 @@ class CryptoQuantProvider(BaseOnChainProvider):
                 metric_key, value, chosen["t"], unit=unit, resolution="1d", source=self.name
             ),
             provider_name=self.name,
-            fetch_time=datetime.utcnow(),
+            fetch_time=utcnow(),
             observation_time=chosen["t"],
             quality_status=QualityStatus.VERIFIED,
             raw_response=result.raw_response,
@@ -267,7 +268,7 @@ class CryptoQuantProvider(BaseOnChainProvider):
                 extra={"unit": unit, "metric_key": metric_key},
             ),
             provider_name=self.name,
-            fetch_time=datetime.utcnow(),
+            fetch_time=utcnow(),
             observation_time=chosen["t"],
             quality_status=QualityStatus.VERIFIED,
             raw_response=result.raw_response,
@@ -399,7 +400,7 @@ class CryptoQuantProvider(BaseOnChainProvider):
             success=True,
             data=data,
             provider_name=self.name,
-            fetch_time=datetime.utcnow(),
+            fetch_time=utcnow(),
             observation_time=ratio.observation_time or inflow.observation_time,
             quality_status=QualityStatus.VERIFIED,
         )
@@ -415,8 +416,8 @@ class CryptoQuantProvider(BaseOnChainProvider):
             return unsupported_result(self.name, metric)
         path, unit, kind = spec
 
-        start_utc = start.astimezone(timezone.utc).replace(tzinfo=None) if start.tzinfo else start
-        end_utc = end.astimezone(timezone.utc).replace(tzinfo=None) if end.tzinfo else end
+        start_utc = start.astimezone(UTC).replace(tzinfo=None) if start.tzinfo else start
+        end_utc = end.astimezone(UTC).replace(tzinfo=None) if end.tzinfo else end
 
         result = await self._fetch_raw(path, window="day", start=start_utc, end=end_utc)
         if not result.success:
@@ -450,7 +451,7 @@ class CryptoQuantProvider(BaseOnChainProvider):
                 metric, series, unit=unit, resolution="1d", source=self.name
             ),
             provider_name=self.name,
-            fetch_time=datetime.utcnow(),
+            fetch_time=utcnow(),
             quality_status=QualityStatus.VERIFIED,
             raw_response=result.raw_response,
             status_code=result.status_code,

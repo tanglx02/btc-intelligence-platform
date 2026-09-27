@@ -35,6 +35,7 @@ from app.providers.manager import ProviderManager
 from app.providers.market.symbol_mapper import normalize_symbol, to_compact
 from app.providers.market.types import Candle
 from app.services.provider_service import ServiceResult
+from app.utils.datetime_utils import utcnow
 
 # 价格交叉验证的最大允许偏差（%），超过则标记 CONFLICT
 PRICE_DEVIATION_THRESHOLD_PCT = 0.5
@@ -96,7 +97,7 @@ class MarketService:
         3. cross_validate=True 时并发调用其他 Provider 比对价格偏差
         4. 写入缓存并返回 ServiceResult
         """
-        started = datetime.utcnow()
+        started = utcnow()
         try:
             normalized = normalize_symbol(symbol)
         except ValueError as e:
@@ -190,7 +191,7 @@ class MarketService:
         3. 新数据写入数据库（source_id 解析失败时跳过落库）
         4. 合并去重后返回完整序列（升序，截断到 limit）
         """
-        started = datetime.utcnow()
+        started = utcnow()
         try:
             normalized = normalize_symbol(symbol)
         except ValueError as e:
@@ -204,7 +205,7 @@ class MarketService:
             )
 
         compact_symbol = to_compact(normalized)
-        end = end or datetime.utcnow()
+        end = end or utcnow()
         start = start or (end - self._interval_delta(interval) * limit)
 
         # 1. 本地数据库查询
@@ -217,7 +218,9 @@ class MarketService:
         need_fetch = True
         fetch_start = start
         if local_coverage_end is not None:
-            remaining = (end - local_coverage_end).total_seconds()
+            remaining = (
+                self._as_utc(end) - self._as_utc(local_coverage_end)
+            ).total_seconds()
             # 本地数据已覆盖到距 end 不足两根K线 -> 无需请求 API
             if remaining <= self._interval_seconds(interval) * 2:
                 need_fetch = False
@@ -305,7 +308,7 @@ class MarketService:
 
         并发聚合 4 个子请求，任一失败降级为对应字段 None（部分成功仍返回）。
         """
-        started = datetime.utcnow()
+        started = utcnow()
         try:
             normalized = normalize_symbol(symbol)
         except ValueError as e:
@@ -562,7 +565,7 @@ class MarketService:
             )
             return 0
 
-        fetch_time = self._as_utc(datetime.utcnow())
+        fetch_time = self._as_utc(utcnow())
         rows = []
         for c in candles:
             rows.append({
@@ -653,7 +656,7 @@ class MarketService:
         **kwargs: Any,
     ) -> ServiceResult:
         """execute_with_failover + Redis 缓存的通用封装。"""
-        started = datetime.utcnow()
+        started = utcnow()
         cache_key = self._cache_key(cache_ns, data_type)
 
         cached = await self._cache_get(cache_key)
@@ -706,7 +709,7 @@ class MarketService:
                 "quality_status": result.quality_status.value,
                 "source": result.source,
                 "metadata": result.metadata,
-                "cached_at": datetime.utcnow().isoformat(),
+                "cached_at": utcnow().isoformat(),
             }
             await self._cache.set(key, json.dumps(payload, default=str), ex=ttl)
         except Exception as e:  # noqa: BLE001 - 缓存写入失败不影响主流程
@@ -728,7 +731,7 @@ class MarketService:
             success=False,
             error=error,
             quality_status=QualityStatus.INVALID,
-            fetch_time=datetime.utcnow(),
+            fetch_time=utcnow(),
         )
 
     @staticmethod
@@ -788,7 +791,7 @@ class MarketService:
     @staticmethod
     def _elapsed_ms(started: datetime) -> float:
         """计算自 started 起的耗时（毫秒）。"""
-        return (datetime.utcnow() - started).total_seconds() * 1000
+        return (utcnow() - started).total_seconds() * 1000
 
 
 __all__ = ["MarketService"]

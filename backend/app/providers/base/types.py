@@ -10,6 +10,8 @@ from enum import Enum
 from typing import Any
 from uuid import UUID, uuid4
 
+from app.utils.datetime_utils import utcnow
+
 
 class ErrorType(str, Enum):
     """错误类型分类枚举。
@@ -100,7 +102,7 @@ class FetchResult:
     status_code: int | None = None
     response_time_ms: float = 0.0
     provider_name: str = ""
-    fetch_time: datetime = field(default_factory=datetime.utcnow)
+    fetch_time: datetime = field(default_factory=utcnow)
     observation_time: datetime | None = None
     quality_status: QualityStatus = QualityStatus.VERIFIED
     raw_response: Any = None
@@ -145,7 +147,7 @@ class FailoverEvent:
     """故障切换事件数据结构。"""
 
     event_id: UUID = field(default_factory=uuid4)
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=utcnow)
     data_type: str = ""
     original_provider: str = ""
     new_provider: str | None = None
@@ -232,7 +234,7 @@ class ProviderHealthSnapshot:
     network_reachable: bool = True
     proxy_in_use: str | None = None
     last_error_reason: str | None = None
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    updated_at: datetime = field(default_factory=utcnow)
 
 
 __all__ = [

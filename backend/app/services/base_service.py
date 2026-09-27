@@ -15,14 +15,16 @@ Service 的公共读取流程，避免重复实现：
 """
 
 import json
-from datetime import datetime, timezone
-from typing import Any, Awaitable, Callable, Optional
+from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
+from typing import Any
 
 from loguru import logger
 
 from app.providers.base.types import FetchResult, QualityStatus
 from app.providers.manager import ProviderManager
 from app.services.provider_service import ServiceResult
+from app.utils.datetime_utils import utcnow
 
 # 本地数据加载器类型：无参协程，命中返回 dict/list，未命中或 DB 不可用返回 None
 LocalLoader = Callable[[], Awaitable[Any]]
@@ -68,7 +70,7 @@ class CategoryServiceBase:
         data_type: str | None = None,
         cache_ttl: int | None = None,
         use_cache: bool = True,
-        local_loader: Optional[LocalLoader] = None,
+        local_loader: LocalLoader | None = None,
         **kwargs: Any,
     ) -> ServiceResult:
         """分类服务统一数据获取入口（本地优先 + 缓存 + Failover）。
@@ -84,7 +86,7 @@ class CategoryServiceBase:
         Returns:
             ServiceResult 统一业务结果
         """
-        started = datetime.utcnow()
+        started = utcnow()
         data_type = data_type or f"{self.CATEGORY}:{method}"
         cache_key = self._cache_key(data_type, kwargs)
 
@@ -172,7 +174,7 @@ class CategoryServiceBase:
                 "quality_status": result.quality_status.value,
                 "source": result.source,
                 "metadata": result.metadata,
-                "cached_at": datetime.utcnow().isoformat(),
+                "cached_at": utcnow().isoformat(),
             }
             await self._cache.set(key, json.dumps(payload, default=str), ex=ttl)
         except Exception as e:  # noqa: BLE001 - 缓存写入失败不影响主流程
@@ -194,20 +196,20 @@ class CategoryServiceBase:
             success=False,
             error=error,
             quality_status=QualityStatus.INVALID,
-            fetch_time=datetime.utcnow(),
+            fetch_time=utcnow(),
         )
 
     @staticmethod
     def _as_utc(dt: datetime) -> datetime:
         """naive datetime 视为 UTC 并附加时区（DB 列为 timestamptz）。"""
         if dt.tzinfo is None:
-            return dt.replace(tzinfo=timezone.utc)
-        return dt.astimezone(timezone.utc)
+            return dt.replace(tzinfo=UTC)
+        return dt.astimezone(UTC)
 
     @staticmethod
     def _elapsed_ms(started: datetime) -> float:
         """计算自 started 起的耗时（毫秒）。"""
-        return (datetime.utcnow() - started).total_seconds() * 1000
+        return (utcnow() - started).total_seconds() * 1000
 
 
 __all__ = ["CategoryServiceBase", "LocalLoader"]

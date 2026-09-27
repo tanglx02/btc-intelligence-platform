@@ -22,6 +22,7 @@ from app.providers.base.types import QualityStatus
 from app.providers.manager import ProviderManager
 from app.services.base_service import CategoryServiceBase
 from app.services.provider_service import ServiceResult
+from app.utils.datetime_utils import utcnow
 
 # 链上指标缓存 TTL（秒）—— 日频指标变化慢，缓存较久
 _METRIC_CACHE_TTL = 3600
@@ -156,7 +157,7 @@ class OnChainService(CategoryServiceBase):
                 data=local,
                 quality_status=QualityStatus.VERIFIED,
                 source="local_db",
-                fetch_time=datetime.utcnow(),
+                fetch_time=utcnow(),
                 metadata={"local_first": True, "count": len(local)},
             )
 
@@ -184,7 +185,7 @@ class OnChainService(CategoryServiceBase):
                 data=local,
                 quality_status=QualityStatus.VERIFIED,
                 source="local_db",
-                fetch_time=datetime.utcnow(),
+                fetch_time=utcnow(),
                 metadata={"local_first": True, "count": len(local)},
             )
 

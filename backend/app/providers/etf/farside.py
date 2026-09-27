@@ -24,6 +24,7 @@ from app.providers.base.types import (
     ProviderMetadata,
     QualityStatus,
 )
+from app.utils.datetime_utils import utcnow
 
 # 页面路径（相对 base_url https://farside.co.uk）
 _BTC_PAGE = "/btc/"
@@ -266,7 +267,7 @@ class FarsideProvider(BaseETFProvider):
             success=True,
             data=data,
             provider_name=self.name,
-            fetch_time=datetime.utcnow(),
+            fetch_time=utcnow(),
             observation_time=row["date"],
             quality_status=QualityStatus.VERIFIED,
             metadata={"unit": "usd", "funds": len(row["flows"])},
@@ -320,7 +321,7 @@ class FarsideProvider(BaseETFProvider):
             success=True,
             data=data,
             provider_name=self.name,
-            fetch_time=datetime.utcnow(),
+            fetch_time=utcnow(),
             observation_time=end_row["date"],
             quality_status=QualityStatus.VERIFIED,
             metadata={"unit": "usd", "days_covered": len(window), "period": period},
@@ -374,7 +375,7 @@ class FarsideProvider(BaseETFProvider):
             success=True,
             data=data,
             provider_name=self.name,
-            fetch_time=datetime.utcnow(),
+            fetch_time=utcnow(),
             observation_time=rows[-1]["date"],
             quality_status=QualityStatus.VERIFIED,
             metadata={"unit": "usd", "baseline_usd": baseline, "points": len(data)},
@@ -418,7 +419,7 @@ class FarsideProvider(BaseETFProvider):
             success=True,
             data=data,
             provider_name=self.name,
-            fetch_time=datetime.utcnow(),
+            fetch_time=utcnow(),
             observation_time=row["date"],
             quality_status=QualityStatus.VERIFIED,
             metadata={"unit": "usd", "total_usd": row["total"]},

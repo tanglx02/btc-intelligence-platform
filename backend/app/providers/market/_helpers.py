@@ -83,6 +83,18 @@ def sec_to_datetime(sec: Any) -> datetime | None:
         return None
 
 
+def as_naive_utc(dt: datetime) -> datetime:
+    """aware datetime 转 naive UTC（naive 原样返回，视为 UTC）。
+
+    用于 Provider 内部与 API 解析产出的 naive candle timestamp 比较：
+    调用方（Service/Sync）可能传入 aware datetime，比较前统一去掉
+    tzinfo，避免 naive/aware 混算 TypeError。
+    """
+    if dt.tzinfo is None:
+        return dt
+    return dt.astimezone(UTC).replace(tzinfo=None)
+
+
 def datetime_to_ms(dt: datetime) -> int:
     """UTC datetime -> 毫秒时间戳（naive datetime 视为 UTC）。"""
     if dt.tzinfo is None:
@@ -255,6 +267,7 @@ __all__ = [
     "BTC_CIRCULATING_SUPPLY",
     "INTERVAL_SECONDS",
     "align_to_interval",
+    "as_naive_utc",
     "data_error_result",
     "datetime_to_ms",
     "datetime_to_sec",

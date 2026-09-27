@@ -31,6 +31,7 @@ from app.providers.base.types import (
     ProviderMetadata,
     QualityStatus,
 )
+from app.utils.datetime_utils import utcnow
 
 # 指标 key -> (series_id, 单位, 频率说明, 是否计算 YoY)
 _SERIES: dict[str, tuple[str, str, str, bool]] = {
@@ -185,7 +186,7 @@ class FREDProvider(BaseMacroProvider):
         end = date
         # YoY 需要至少 13 个月度观测；普通指标取最近若干条选最后一条 <= date
         if yoy:
-            start = (date or datetime.utcnow()) - timedelta(days=500)
+            start = (date or utcnow()) - timedelta(days=500)
             result = await self._fetch_observations(
                 series_id, observation_start=start, observation_end=end
             )
@@ -226,7 +227,7 @@ class FREDProvider(BaseMacroProvider):
             data=macro_payload(
                 indicator,
                 value,
-                chosen["observation_date"] or datetime.utcnow(),
+                chosen["observation_date"] or utcnow(),
                 release_date=chosen["release_date"],
                 revision_date=chosen["revision_date"],
                 unit=unit,
@@ -235,7 +236,7 @@ class FREDProvider(BaseMacroProvider):
                 extra=extra,
             ),
             provider_name=self.name,
-            fetch_time=datetime.utcnow(),
+            fetch_time=utcnow(),
             observation_time=chosen["observation_date"],
             quality_status=QualityStatus.VERIFIED,
             raw_response=result.raw_response,
@@ -335,7 +336,7 @@ class FREDProvider(BaseMacroProvider):
             macro_payload(
                 indicator,
                 p["value"],
-                p["observation_date"] or datetime.utcnow(),
+                p["observation_date"] or utcnow(),
                 release_date=p["release_date"],
                 revision_date=p["revision_date"],
                 unit=unit,
@@ -348,7 +349,7 @@ class FREDProvider(BaseMacroProvider):
             success=True,
             data=series,
             provider_name=self.name,
-            fetch_time=datetime.utcnow(),
+            fetch_time=utcnow(),
             observation_time=points[-1]["observation_date"],
             quality_status=QualityStatus.VERIFIED,
             raw_response=result.raw_response,

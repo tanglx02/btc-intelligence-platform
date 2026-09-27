@@ -22,6 +22,7 @@ from app.providers.base.types import QualityStatus
 from app.providers.manager import ProviderManager
 from app.services.base_service import CategoryServiceBase
 from app.services.provider_service import ServiceResult
+from app.utils.datetime_utils import utcnow
 
 _FLOW_CACHE_TTL = 1800  # ETF 日频，30 分钟足够
 _HOLDINGS_CACHE_TTL = 1800
@@ -131,7 +132,7 @@ class ETFService(CategoryServiceBase):
                 data=local,
                 quality_status=QualityStatus.VERIFIED,
                 source="local_db",
-                fetch_time=datetime.utcnow(),
+                fetch_time=utcnow(),
                 metadata={"local_first": True, "count": len(local)},
             )
         # 本地缺失：回源取区间累计

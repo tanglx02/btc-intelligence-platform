@@ -27,6 +27,7 @@ from app.providers.base.types import (
     ProviderLifecycleStatus,
     QualityStatus,
 )
+from app.utils.datetime_utils import utcnow
 
 
 @dataclass
@@ -88,7 +89,7 @@ class AntiFlappingGuard:
         if not self._config.enabled:
             return True
 
-        now = datetime.utcnow()
+        now = utcnow()
 
         # 冷却期检查
         if provider_name in self._cooldown:
@@ -120,7 +121,7 @@ class AntiFlappingGuard:
         if not self._config.enabled:
             return
 
-        now = datetime.utcnow()
+        now = utcnow()
         self._last_change[provider_name] = now
 
         # 检测抖动：短时间内多次变更
@@ -142,7 +143,7 @@ class AntiFlappingGuard:
         """是否处于冷却期。"""
         if provider_name not in self._cooldown:
             return False
-        return datetime.utcnow() < self._cooldown[provider_name]
+        return utcnow() < self._cooldown[provider_name]
 
     def reset_flap_count(self, provider_name: str) -> None:
         """Provider 稳定运行一段时间后重置抖动计数。"""
@@ -334,6 +335,18 @@ class FailoverEngine:
             if self._should_mark_offline(result.error_type):
                 await self._mark_provider_offline(provider, result)
 
+            # 检查错误策略是否允许 failover（如 RATE_LIMIT：仅重试不切换）
+            policy = self._error_policies.get(
+                result.error_type or ErrorType.UNKNOWN, ErrorPolicy()
+            )
+            if not policy.failover:
+                logger.warning(
+                    f"Failover disabled for {result.error_type} "
+                    f"(action={policy.action}), stop trying other providers "
+                    f"for {data_type}"
+                )
+                return result
+
         # 所有 Provider 都失败
         logger.error(f"All providers failed for {data_type}")
         return last_result or FetchResult(
@@ -479,7 +492,7 @@ class FailoverEngine:
             provider_name=provider_name,
             is_recovering=True,
             probe_interval=self._recovery_config.probe_interval_initial,
-            next_probe_time=datetime.utcnow() + timedelta(
+            next_probe_time=utcnow() + timedelta(
                 seconds=self._recovery_config.probe_interval_initial
             ),
         )
@@ -499,7 +512,7 @@ class FailoverEngine:
     async def _recovery_loop(self) -> None:
         """恢复探测循环。"""
         while self._running and self._recovery_states:
-            now = datetime.utcnow()
+            now = utcnow()
 
             for provider_name, state in list(self._recovery_states.items()):
                 if not state.is_recovering:
@@ -539,7 +552,7 @@ class FailoverEngine:
             logger.warning(f"[{provider_name}] Recovery probe failed: {e}")
             health_ok = False
 
-        state.last_probe_time = datetime.utcnow()
+        state.last_probe_time = utcnow()
 
         if health_ok:
             state.consecutive_probes += 1
@@ -565,7 +578,7 @@ class FailoverEngine:
             )
 
         # 设置下次探测时间
-        state.next_probe_time = datetime.utcnow() + timedelta(seconds=state.probe_interval)
+        state.next_probe_time = utcnow() + timedelta(seconds=state.probe_interval)
 
     async def _complete_recovery(
         self, provider: BaseProvider, state: RecoveryState
@@ -624,7 +637,7 @@ class FailoverEngine:
         """记录 Failover 事件。"""
         event = FailoverEvent(
             event_id=uuid4(),
-            timestamp=datetime.utcnow(),
+            timestamp=utcnow(),
             data_type=data_type,
             original_provider=original_provider,
             new_provider=new_provider,

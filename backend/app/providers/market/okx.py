@@ -26,6 +26,7 @@ from app.providers.base.types import (
 from app.providers.market._helpers import (
     BTC_CIRCULATING_SUPPLY,
     align_to_interval,
+    as_naive_utc,
     data_error_result,
     datetime_to_ms,
     empty_result,
@@ -739,7 +740,7 @@ class OKXProvider(BaseMarketProvider):
             start_aligned = align_to_interval(start, "1m")
             candles = [c for c in candles if c.timestamp >= start_aligned]
         if end:
-            candles = [c for c in candles if c.timestamp <= end]
+            candles = [c for c in candles if c.timestamp <= as_naive_utc(end)]
         if len(candles) > limit:
             candles = candles[-limit:]
         return candles

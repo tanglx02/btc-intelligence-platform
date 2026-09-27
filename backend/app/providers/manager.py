@@ -21,6 +21,7 @@ from app.providers.base.types import (
     FetchResult,
     QualityStatus,
 )
+from app.utils.datetime_utils import utcnow
 
 
 class PrioritizedProvider:
@@ -256,7 +257,7 @@ class ProviderManager:
 
     def _update_cache(self, key: str, data: Any) -> None:
         """更新缓存。"""
-        self._cache[key] = (data, datetime.utcnow())
+        self._cache[key] = (data, utcnow())
 
     def _get_cached(
         self, key: str, max_age_seconds: int | None = None
@@ -268,18 +269,23 @@ class ProviderManager:
             max_age_seconds: 最大年龄（秒），None 使用默认 TTL
 
         Returns:
-            (data, timestamp) 或 None（过期/不存在）
+            (data, timestamp)，不存在或超过 max_age 时返回 None（视为缓存未命中，
+            调用方应重新获取；降级回退旧缓存的语义由 _handle_all_failed 的
+            all-failed 路径以更宽的 max_age 承担）
         """
         if key not in self._cache:
             return None
 
         data, timestamp = self._cache[key]
-        max_age = max_age_seconds or self._cache_ttl
-        age = (datetime.utcnow() - timestamp).total_seconds()
+        max_age = max_age_seconds if max_age_seconds is not None else self._cache_ttl
+        age = (utcnow() - timestamp).total_seconds()
 
         if age > max_age:
-            # 过期但仍返回（标记为 stale）
-            return data, timestamp
+            logger.warning(
+                f"Cache expired for {key} "
+                f"(age={age:.0f}s > max_age={max_age}s), treating as cache miss"
+            )
+            return None
 
         return data, timestamp
 
@@ -310,7 +316,7 @@ class ProviderManager:
 
         if cached:
             data, timestamp = cached
-            stale_duration = (datetime.utcnow() - timestamp).total_seconds()
+            stale_duration = (utcnow() - timestamp).total_seconds()
 
             logger.warning(
                 f"Returning stale data for {data_type} "
@@ -323,7 +329,7 @@ class ProviderManager:
                 error=None,
                 error_type=None,
                 provider_name="cache",
-                fetch_time=datetime.utcnow(),
+                fetch_time=utcnow(),
                 observation_time=timestamp,
                 quality_status=QualityStatus.STALE,
                 is_stale=True,
@@ -345,7 +351,7 @@ class ProviderManager:
             error=error,
             error_type=error_type or ErrorType.NETWORK_ERROR,
             provider_name="",
-            fetch_time=datetime.utcnow(),
+            fetch_time=utcnow(),
             quality_status=QualityStatus.INVALID,
             is_stale=False,
             is_failover=False,
@@ -380,7 +386,7 @@ class ProviderManager:
             new_provider: 切换后的 Provider（可选）
         """
         event = FailoverEvent(
-            timestamp=datetime.utcnow(),
+            timestamp=utcnow(),
             data_type=data_type,
             original_provider=original_provider,
             new_provider=new_provider,

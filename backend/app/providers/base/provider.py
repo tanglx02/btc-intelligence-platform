@@ -25,6 +25,7 @@ from app.providers.base.types import (
 )
 from app.providers.network import HTTPClient
 from app.providers.rate_limiter import RateLimiterFactory, TokenBucketRateLimiter
+from app.utils.datetime_utils import utcnow
 
 
 class BaseProvider(ABC):
@@ -164,7 +165,7 @@ class BaseProvider(ABC):
 
         # 更新状态
         self._status = ProviderLifecycleStatus.HEALTH_CHECKING
-        self._started_at = datetime.utcnow()
+        self._started_at = utcnow()
 
         logger.info(f"[{self.name}] Provider initialized successfully")
 
@@ -226,7 +227,7 @@ class BaseProvider(ABC):
         self._today_requests += 1
         self._consecutive_successes += 1
         self._consecutive_failures = 0
-        self._last_success_time = datetime.utcnow()
+        self._last_success_time = utcnow()
 
         # 记录延迟
         self._latencies.append(latency_ms)
@@ -252,7 +253,7 @@ class BaseProvider(ABC):
         self._today_failures += 1
         self._consecutive_failures += 1
         self._consecutive_successes = 0
-        self._last_failure_time = datetime.utcnow()
+        self._last_failure_time = utcnow()
 
         self._last_error = error
         self._last_error_type = error_type
@@ -279,7 +280,7 @@ class BaseProvider(ABC):
 
         uptime = 0.0
         if self._started_at:
-            uptime = (datetime.utcnow() - self._started_at).total_seconds()
+            uptime = (utcnow() - self._started_at).total_seconds()
 
         return ProviderMetrics(
             provider_name=self.name,
@@ -329,7 +330,7 @@ class BaseProvider(ABC):
             network_reachable=metrics.network_reachable,
             proxy_in_use=self._config.proxy,
             last_error_reason=metrics.last_error_reason,
-            updated_at=datetime.utcnow(),
+            updated_at=utcnow(),
         )
 
     # ---- 受保护的请求方法 ----
@@ -407,7 +408,7 @@ class BaseProvider(ABC):
 
     def _check_date_rollover(self) -> None:
         """检查日期翻转，重置每日计数器。"""
-        today = datetime.utcnow().strftime("%Y-%m-%d")
+        today = utcnow().strftime("%Y-%m-%d")
         if self._today_date != today:
             self._today_date = today
             self._today_requests = 0

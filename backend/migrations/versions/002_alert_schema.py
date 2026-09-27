@@ -20,15 +20,15 @@ depends_on: Union[str, Sequence[str], None] = None
 # ---- ENUM 类型 ----
 alert_severity = sa.Enum(
     "INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL",
-    name="alert_severity", create_type=True,
+    name="alert_severity", create_type=False,
 )
 alert_status = sa.Enum(
     "TRIGGERED", "ACKED", "RESOLVED", "SUPPRESSED",
-    name="alert_status", create_type=True,
+    name="alert_status", create_type=False,
 )
 alert_rule_state = sa.Enum(
     "ACTIVE", "PAUSED", "ARCHIVED", "ERROR",
-    name="alert_rule_state", create_type=True,
+    name="alert_rule_state", create_type=False,
 )
 
 

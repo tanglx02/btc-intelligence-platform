@@ -5,6 +5,7 @@
 """
 
 import asyncio
+import sys
 from logging.config import fileConfig
 
 from alembic import context
@@ -14,6 +15,10 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from app.core.config import settings
 from app.models import Base  # noqa: F401 — 导入即注册所有模型到 metadata
+
+# Windows 默认 ProactorEventLoop 不支持 psycopg 异步连接，切换为 Selector
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 # Alembic Config 对象
 config = context.config

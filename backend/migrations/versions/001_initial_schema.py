@@ -21,57 +21,57 @@ depends_on: Union[str, Sequence[str], None] = None
 provider_category = sa.Enum(
     "MARKET", "ONCHAIN", "EXCHANGE_FLOW", "ETF", "DERIVATIVES",
     "OPTIONS", "MACRO", "SENTIMENT", "NEWS",
-    name="provider_category", create_type=True,
+    name="provider_category", create_type=False,
 )
 provider_status = sa.Enum(
     "ONLINE", "DEGRADED", "SLOW", "RATE_LIMITED", "AUTH_ERROR",
     "NETWORK_ERROR", "DATA_ERROR", "OFFLINE", "DISABLED",
-    name="provider_status", create_type=True,
+    name="provider_status", create_type=False,
 )
 failover_resolution = sa.Enum(
     "AUTO_RECOVERED", "MANUAL_RESET", "TIMEOUT", "PERMANENTLY_DISABLED",
-    name="failover_resolution", create_type=True,
+    name="failover_resolution", create_type=False,
 )
 quality_status_type = sa.Enum(
     "VERIFIED", "ESTIMATED", "STALE", "CONFLICT", "INVALID",
-    name="quality_status_type", create_type=True,
+    name="quality_status_type", create_type=False,
 )
 candle_interval = sa.Enum(
     "1m", "5m", "15m", "30m", "1h", "4h", "1d", "1w",
-    name="candle_interval", create_type=True,
+    name="candle_interval", create_type=False,
 )
 cycle_phase = sa.Enum(
     "DEEP_BEAR", "BEAR", "BOTTOM_BUILDING", "RECOVERY", "UPTREND",
     "ACCELERATION", "DISTRIBUTION", "TOP_RISK", "DECLINE",
-    name="cycle_phase", create_type=True,
+    name="cycle_phase", create_type=False,
 )
 valuation_level = sa.Enum(
     "DEEP_UNDERVALUED", "UNDERVALUED", "FAIR", "OVERVALUED", "EXTREME_OVERVALUED",
-    name="valuation_level", create_type=True,
+    name="valuation_level", create_type=False,
 )
 risk_level = sa.Enum(
     "VERY_LOW", "LOW", "MODERATE", "HIGH", "VERY_HIGH", "EXTREME",
-    name="risk_level", create_type=True,
+    name="risk_level", create_type=False,
 )
-signal_direction = sa.Enum("BULLISH", "BEARISH", "NEUTRAL", name="signal_direction", create_type=True)
+signal_direction = sa.Enum("BULLISH", "BEARISH", "NEUTRAL", name="signal_direction", create_type=False)
 job_status = sa.Enum(
     "PENDING", "RUNNING", "PAUSED", "COMPLETED", "FAILED", "CANCELLED", "SKIPPED",
-    name="job_status", create_type=True,
+    name="job_status", create_type=False,
 )
 sync_status = sa.Enum(
     "IDLE", "SYNCING", "PAUSED", "COMPLETED", "FAILED", "RETRY",
-    name="sync_status", create_type=True,
+    name="sync_status", create_type=False,
 )
-user_role = sa.Enum("ADMIN", "ANALYST", "USER", name="user_role", create_type=True)
-trade_side = sa.Enum("BUY", "SELL", name="trade_side", create_type=True)
-plan_status = sa.Enum("ACTIVE", "PAUSED", "COMPLETED", "CANCELLED", name="plan_status", create_type=True)
+user_role = sa.Enum("ADMIN", "ANALYST", "USER", name="user_role", create_type=False)
+trade_side = sa.Enum("BUY", "SELL", name="trade_side", create_type=False)
+plan_status = sa.Enum("ACTIVE", "PAUSED", "COMPLETED", "CANCELLED", name="plan_status", create_type=False)
 model_status = sa.Enum(
     "DRAFT", "TRAINING", "VALIDATED", "DEPLOYED", "DEPRECATED", "REJECTED",
-    name="model_status", create_type=True,
+    name="model_status", create_type=False,
 )
 backtest_status = sa.Enum(
     "PENDING", "RUNNING", "COMPLETED", "FAILED", "CANCELLED",
-    name="backtest_status", create_type=True,
+    name="backtest_status", create_type=False,
 )
 
 
@@ -166,7 +166,7 @@ def upgrade() -> None:
         sa.Column("recovery_threshold", sa.Integer, server_default="3"),
         sa.Column("failure_threshold", sa.Integer, server_default="5"),
         sa.Column("description", sa.Text),
-        sa.Column("supported_symbols", ARRAY(sa.Text), server_default="ARRAY['BTC']"),
+        sa.Column("supported_symbols", ARRAY(sa.Text), server_default="{BTC}"),
         sa.Column("supported_intervals", ARRAY(sa.Text), server_default="{}"),
         sa.Column("last_success_at", sa.DateTime(timezone=True)),
         sa.Column("last_failure_at", sa.DateTime(timezone=True)),

@@ -86,7 +86,8 @@ function resolveGlobalStatus(
 ): "ok" | "stale" | "error" {
   if (error) return "error";
   if (!data && loading) return "ok"; // 首次加载中先按正常显示
-  const backend = data?.status ?? "OK";
+  // 后端返回小写 ok/degraded/critical，此处统一大写比较（大小写不敏感）
+  const backend = (data?.status ?? "ok").toUpperCase();
   if (backend === "OK") return "ok";
   if (backend === "DEGRADED") return "stale";
   return "error";

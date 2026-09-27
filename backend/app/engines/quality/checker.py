@@ -159,6 +159,11 @@ RANGE_DEFINITIONS: dict[str, tuple[Decimal | None, Decimal | None]] = {
     "net_flow_btc": (None, None),
 }
 
+#: 下界为开区间的字段（必须严格大于下界，如价格 > 0；文档 §1.2 定义）
+STRICT_POSITIVE_FIELDS = {
+    "price", "open", "high", "low", "close", "bid", "ask", "vwap", "mid_price",
+}
+
 
 # ==========================================================================
 # DataChecker 主类
@@ -326,17 +331,22 @@ class DataChecker:
                 continue
 
             min_val, max_val = RANGE_DEFINITIONS[field_name]
-            if min_val is not None and decimal_value < min_val:
-                issues.append(CheckIssue(
-                    check_type="RANGE",
-                    severity="HIGH" if field_name == "price" else "MEDIUM",
-                    field_name=field_name,
-                    value=value,
-                    expected=f">= {min_val}",
-                    message=f"{field_name}={value} 低于最小值 {min_val}",
-                    timestamp=timestamp,
-                    record_id=str(idx),
-                ))
+            strict = field_name in STRICT_POSITIVE_FIELDS
+            if min_val is not None:
+                below_min = (
+                    decimal_value <= min_val if strict else decimal_value < min_val
+                )
+                if below_min:
+                    issues.append(CheckIssue(
+                        check_type="RANGE",
+                        severity="HIGH" if field_name == "price" else "MEDIUM",
+                        field_name=field_name,
+                        value=value,
+                        expected=f"> {min_val}" if strict else f">= {min_val}",
+                        message=f"{field_name}={value} 低于最小值 {min_val}",
+                        timestamp=timestamp,
+                        record_id=str(idx),
+                    ))
             if max_val is not None and decimal_value > max_val:
                 issues.append(CheckIssue(
                     check_type="RANGE",

@@ -454,8 +454,14 @@ class MarketService:
                     entry.provider.get_current_price(symbol=normalized_symbol),
                     timeout=_VALIDATION_TIMEOUT,
                 )
-                if r.success and getattr(r.data, "price", None):
-                    prices[entry.name] = float(r.data.price)
+                if r.success and r.data is not None:
+                    # 兼容 dict 与 PriceData dataclass 两种返回形态（与 _price_to_dict 一致）
+                    if isinstance(r.data, dict):
+                        price_val = r.data.get("price")
+                    else:
+                        price_val = getattr(r.data, "price", None)
+                    if price_val:
+                        prices[entry.name] = float(price_val)
             except Exception as e:  # noqa: BLE001 - 验证失败不阻断主流程
                 logger.debug(f"Cross-validation skipped for {entry.name}: {e}")
 

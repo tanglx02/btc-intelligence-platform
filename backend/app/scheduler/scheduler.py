@@ -304,7 +304,7 @@ class SchedulerService:
                 else:
                     update_set["consecutive_failures"] = 0
                 stmt = stmt.on_conflict_do_update(
-                    index_element=[SystemJob.job_name], set_=update_set
+                    index_elements=[SystemJob.job_name], set_=update_set
                 )
                 await session.execute(stmt)
         except Exception as exc:  # noqa: BLE001

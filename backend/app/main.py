@@ -88,19 +88,27 @@ async def lifespan(app: FastAPI):
     except Exception as e:  # noqa: BLE001
         logger.error(f"ProviderService startup failed: {e}")
 
-    # 2. Scheduler（可选模块，由并行任务实现）
-    await _start_optional_module(
-        import_path="app.scheduler",
-        factory="get_scheduler",
-        label="Scheduler",
-    )
+    # 2. Scheduler（可选模块；SCHEDULER_ENABLED=false 时跳过 —— 生产环境中
+    #    由独立 scheduler 容器专职运行，避免多 worker 重复执行任务）
+    if settings.scheduler_enabled:
+        await _start_optional_module(
+            import_path="app.scheduler",
+            factory="get_scheduler",
+            label="Scheduler",
+        )
+    else:
+        logger.info("Scheduler disabled by config (SCHEDULER_ENABLED=false)")
 
-    # 3. AlertEngine（可选模块，由并行任务实现）
-    await _start_optional_module(
-        import_path="app.alerts",
-        factory="get_alert_engine",
-        label="Alert engine",
-    )
+    # 3. AlertEngine（可选模块；ALERT_ENABLED=false 时跳过 —— 生产环境中由
+    #    scheduler 容器内运行，避免多 worker 双发告警）
+    if settings.alert_enabled:
+        await _start_optional_module(
+            import_path="app.alerts",
+            factory="get_alert_engine",
+            label="Alert engine",
+        )
+    else:
+        logger.info("Alert engine disabled by config (ALERT_ENABLED=false)")
 
     yield
 

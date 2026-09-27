@@ -1,0 +1,23 @@
+# 后端镜像构建上下文排除清单（防止本地缓存/密钥进入镜像）
+.venv/
+**/__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# 日志与本地环境
+logs/
+*.log
+.env
+.env.*
+!.env.example
+
+# 开发工具目录（生产镜像不需要）
+tests/
+.git/
+.idea/
+.vscode/

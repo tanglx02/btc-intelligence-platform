@@ -1,0 +1,48 @@
+# ============================================================
+# BTC 全市场智能研究平台 - systemd 服务单元
+#
+# 安装说明（在部署服务器上执行）:
+#   1. 项目目录约定为 /opt/btc-platform（其他目录请同步修改
+#      下方 WorkingDirectory）:
+#         sudo cp deploy/btc-platform.service /etc/systemd/system/
+#   2. 重载 systemd 并启用开机自启:
+#         sudo systemctl daemon-reload
+#         sudo systemctl enable --now btc-platform.service
+#   3. 常用管理命令:
+#         sudo systemctl start btc-platform.service     # 启动
+#         sudo systemctl stop btc-platform.service      # 停止
+#         sudo systemctl status btc-platform.service    # 状态
+#         journalctl -u btc-platform.service -f         # 日志
+#
+# 说明:
+#   - Type=oneshot + RemainAfterExit=yes: compose up -d 执行完即视为
+#     active，后续由 Docker restart 策略（unless-stopped）保活容器。
+#   - ExecStartPost 等待 10s，给数据库健康检查留出启动时间。
+#   - 服务停止使用 compose down（保留数据卷）；删除数据请用
+#     scripts/uninstall.sh 交互确认。
+# ============================================================
+
+[Unit]
+Description=BTC Intelligence Platform
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/btc-platform
+ExecStart=/usr/bin/docker compose -f docker-compose.prod.yml up -d
+ExecStop=/usr/bin/docker compose -f docker-compose.prod.yml down
+ExecStartPost=/bin/sleep 10
+TimeoutStartSec=300
+TimeoutStopSec=120
+
+# 安全加固
+User=root
+Group=root
+UMask=0077
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

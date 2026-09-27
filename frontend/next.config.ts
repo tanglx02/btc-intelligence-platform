@@ -7,6 +7,8 @@ import type { NextConfig } from "next";
  */
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // 生产镜像以 standalone 模式运行（frontend/Dockerfile 复制 .next/standalone）
+  output: "standalone",
   async rewrites() {
     const apiOrigin = process.env.API_PROXY_ORIGIN || "http://localhost:8000";
     return [

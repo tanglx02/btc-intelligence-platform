@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     host: str = Field(default="0.0.0.0")
     port: int = Field(default=8000)
 
+    # ---- CORS ----
+    # 逗号分隔来源列表；生产经 nginx 同源反代，通常无需扩展
+    cors_origins: str = Field(default="http://localhost:3000,http://localhost:8080")
+
     # ---- 安全 / 鉴权 ----
     secret_key: str = Field(default="change-me-in-production")
     access_token_expire_minutes: int = Field(default=60 * 24)

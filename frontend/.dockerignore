@@ -1,0 +1,18 @@
+# 前端镜像构建上下文排除清单（standalone 产物在容器内重建，不携带本地构建缓存）
+node_modules/
+.next/
+out/
+build/
+
+# 环境与密钥（构建期变量通过 ARG 注入，不携带本地文件）
+.env
+.env.local
+.env.*.local
+
+# 缓存与工具
+*.log
+tsconfig.tsbuildinfo
+.eslintcache
+.git/
+.idea/
+.vscode/

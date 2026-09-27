@@ -28,6 +28,17 @@ _SYMBOL = "BTCUSDT"
 _MIN_CANDLES = 30  # 少于该数量时跳过计算（多数指标需预热窗口）
 _MAX_CANDLES = 400
 
+#: indicator_definitions.code → (registry 指标名, 结果取值列, 参数覆盖)。
+#: registry 命名（tech.*）与 definitions.code（RSI_14 等）是两套体系，
+#: 此处显式桥接；缺定义 / 计算失败 / 取值列无有效值时跳过。
+#: 链上 / 衍生品 / 宏观类指标（MVRV 等）依赖外部数据源，不在本地计算范围。
+_CODE_SPECS: dict[str, tuple[str, str | None, dict[str, Any]]] = {
+    "RSI_14": ("tech.rsi", None, {}),  # value 列，period=14 与默认一致
+    "MACD": ("tech.macd", "macd_line", {}),  # 取快线
+    "BB_WIDTH": ("tech.bollinger", "bandwidth", {}),
+    "MA_200": ("tech.sma", None, {"period": 200}),
+}
+
 
 async def _ensure_provider_service():
     """获取全局 ProviderService 并确保已启动（惰性）。"""
@@ -89,8 +100,17 @@ def _is_valid_number(value: Any) -> bool:
     return True
 
 
-def _extract_latest(res_values: pl.DataFrame, fallback_time: datetime) -> tuple[datetime, float, float | None] | None:
-    """从指标结果（首列 time + 数值列）取最后一行有效值 → (observation_time, value, percentile)。"""
+def _extract_latest(
+    res_values: pl.DataFrame,
+    fallback_time: datetime,
+    value_col: str | None = None,
+) -> tuple[datetime, float, float | None] | None:
+    """从指标结果（首列 time + 数值列）取最后一行有效值 → (observation_time, value, percentile)。
+
+    Args:
+        value_col: 指定取值列（如 MACD 的 ``macd_line``、布林带的 ``bandwidth``）；
+            None 时取首个非 percentile 数值列（多列结果的首列可能不是目标语义）。
+    """
     if res_values.is_empty():
         return None
     tail = res_values.tail(1)
@@ -109,6 +129,9 @@ def _extract_latest(res_values: pl.DataFrame, fallback_time: datetime) -> tuple[
         lowered = col.lower()
         if lowered.endswith("percentile") or lowered == "pct":
             percentile = float(candidate)
+        elif value_col is not None:
+            if col == value_col and value is None:
+                value = float(candidate)
         elif value is None:
             value = float(candidate)
     if value is None:
@@ -119,7 +142,6 @@ def _extract_latest(res_values: pl.DataFrame, fallback_time: datetime) -> tuple[
 async def calculate_indicators() -> dict[str, Any]:
     """计算核心指标并写入 indicator_values（任务 indicator_calc_1h）。"""
     from app.indicators.calculator import IndicatorCalculator
-    from app.indicators.registry import registry
 
     await _ensure_provider_service()  # 确保子系统就绪（指标本身仅用本地数据）
 
@@ -145,7 +167,8 @@ async def calculate_indicators() -> dict[str, Any]:
 
         df = pl.DataFrame(
             {
-                "date": [r.observation_time.date() for r in rows],
+                # 指标基类约定时间列名为 "time"（TIME_COLUMN），缺失时会回退为行号序号
+                "time": [r.observation_time.replace(tzinfo=None) for r in rows],
                 "open": _col("open"),
                 "high": _col("high"),
                 "low": _col("low"),
@@ -154,12 +177,17 @@ async def calculate_indicators() -> dict[str, Any]:
             }
         )
 
-        names = registry.names("technical") + registry.names("composite")
+        # 计算 _CODE_SPECS 涉及的 registry 指标（参数按 registry 名合并）
+        reg_params: dict[str, dict[str, Any]] = {}
+        for _code, (_reg, _col, _overrides) in _CODE_SPECS.items():
+            reg_params.setdefault(_reg, dict(_overrides))
         calculator = IndicatorCalculator(enable_cache=False)
-        results = calculator.calculate_batch(names, df, stop_on_error=False)
+        results = calculator.calculate_batch(
+            sorted(reg_params), df, params=reg_params, stop_on_error=False
+        )
         if not results:
             raise RuntimeError("指标计算无任何成功结果")
-        logger.info("指标批量计算完成：{} / {} 个成功", len(results), len(names))
+        logger.info("指标批量计算完成：{} / {} 个成功", len(results), len(reg_params))
 
         source_id = await _resolve_source_id()
         definitions = (await session.execute(select(IndicatorDefinition))).scalars().all()
@@ -171,12 +199,15 @@ async def calculate_indicators() -> dict[str, Any]:
 
         persisted = 0
         skipped_no_definition = 0
-        for name, result in results.items():
-            indicator_id = code_to_id.get(name)
+        for code, (reg_name, value_col, _overrides) in _CODE_SPECS.items():
+            indicator_id = code_to_id.get(code)
             if indicator_id is None:
                 skipped_no_definition += 1
                 continue
-            extracted = _extract_latest(result.values, fallback_time)
+            result = results.get(reg_name)
+            if result is None:
+                continue
+            extracted = _extract_latest(result.values, fallback_time, value_col)
             if extracted is None:
                 continue
             obs_time, value, percentile = extracted
@@ -199,12 +230,13 @@ async def calculate_indicators() -> dict[str, Any]:
                         Decimal(str(percentile)) if percentile is not None else None
                     ),
                     params_used=params_used,
-                    metadata_={"task": "indicator_calc_1h"},
+                    metadata={"task": "indicator_calc_1h"},  # __table__ 插入用 DB 列名（非 ORM 属性名）
                     quality_status=QualityStatus.VERIFIED,
                     updated_at=now,
                 )
                 .on_conflict_do_update(
-                    constraint="idx_indicator_values_unique",
+                    # DB 中是唯一索引（非命名约束），用列组定位冲突目标
+                    index_elements=["indicator_id", "symbol", "observation_time"],
                     set_={
                         "value": Decimal(str(value)),
                         "percentile": (

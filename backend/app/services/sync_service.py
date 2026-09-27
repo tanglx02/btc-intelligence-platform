@@ -793,10 +793,18 @@ class SyncService:
                     provider=provider,
                 )
 
-                if not fetch_result.success:
+                if not fetch_result.success or fetch_result.is_stale:
                     retry_count += 1
                     records_failed += 1
-                    error_text = f"{fetch_result.error_type or 'unknown'}: {fetch_result.error}"
+                    if fetch_result.is_stale:
+                        # 降级缓存回放的是历史快照（且未经标准化管道），
+                        # 对断点续传回填无意义——视为失败，走统一退避等待 Provider 恢复
+                        error_text = (
+                            "STALE_CACHE: 所有 Provider 暂不可用，"
+                            "拒绝使用降级缓存数据进行同步"
+                        )
+                    else:
+                        error_text = f"{fetch_result.error_type or 'unknown'}: {fetch_result.error}"
                     logger.warning(
                         f"批次拉取失败 task={task_name} 区间=[{cursor} → {batch_end}] "
                         f"retry={retry_count}/{max_retries} err={error_text}"

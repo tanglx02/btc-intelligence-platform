@@ -52,7 +52,7 @@ providers:
       timeout: {connect: 5, read: 10, write: 5}
       retry: {count: 3, backoff_factor: 2, max_delay: 30}
       rate_limit: {requests: 1200, period: 60}
-      proxy: null
+      proxy: "${PROXY_SOCKS5_URL}"
       description: "Binance 现货行情（全球流动性最佳）"
       supported_symbols: ["BTC/USDT"]
       supported_intervals: ["1m", "5m", "15m", "1h", "4h", "1d"]
@@ -67,7 +67,7 @@ providers:
       timeout: {connect: 5, read: 12, write: 5}
       retry: {count: 3, backoff_factor: 2, max_delay: 30}
       rate_limit: {requests: 600, period: 60}
-      proxy: "http://127.0.0.1:7890"
+      proxy: "${PROXY_SOCKS5_URL}"
       description: "OKX 现货行情"
       supported_symbols: ["BTC/USDT", "BTC-USDT"]
       supported_intervals: ["1m", "5m", "15m", "1h", "4h", "1d"]
@@ -80,7 +80,7 @@ providers:
       timeout: {connect: 5, read: 15, write: 5}
       retry: {count: 3, backoff_factor: 2, max_delay: 30}
       rate_limit: {requests: 300, period: 60}
-      proxy: "socks5://127.0.0.1:1080"
+      proxy: "${PROXY_SOCKS5_URL}"
       description: "Coinbase 现货行情（合规标杆）"
       supported_symbols: ["BTC/USD", "BTC/USDT"]
       supported_intervals: ["1m", "5m", "15m", "1h", "1d"]
@@ -88,24 +88,25 @@ providers:
     kraken:
       enabled: true
       priority: 4
-      base_url: "https://api.kraken.com"
+      base_url: "https://api.kraken.com/0"
       api_key: "${KRAKEN_API_KEY}"
       api_secret: "${KRAKEN_API_SECRET}"
       timeout: {connect: 5, read: 10, write: 5}
       retry: {count: 3, backoff_factor: 2, max_delay: 30}
       rate_limit: {requests: 60, period: 60}
-      proxy: "http://127.0.0.1:7890"
+      proxy: "${PROXY_SOCKS5_URL}"
       description: "Kraken 现货行情"
       supported_symbols: ["BTC/USD", "BTC/USDT"]
       supported_intervals: ["1m", "5m", "15m", "30m", "1h", "4h", "1d", "1w"]
 
     bybit:
-      enabled: false
+      enabled: true
       priority: 5
       base_url: "https://api.bybit.com"
       timeout: {connect: 5, read: 10, write: 5}
       rate_limit: {requests: 120, period: 60}
-      description: "Bybit 现货行情（暂时禁用）"
+      proxy: "${PROXY_SOCKS5_URL}"
+      description: "Bybit 现货行情（经 SOCKS5 代理）"
       supported_symbols: ["BTC/USDT"]
       supported_intervals: ["1m", "5m", "15m", "30m", "1h", "4h", "1d", "1w"]
 
@@ -119,7 +120,7 @@ providers:
       timeout: {connect: 10, read: 30, write: 10}
       retry: {count: 2, backoff_factor: 2, max_delay: 60}
       rate_limit: {requests: 30, period: 60}
-      proxy: "http://127.0.0.1:7890"
+      proxy: "${PROXY_SOCKS5_URL}"
       description: "Glassnode 链上指标（MVRV/SOPR/NUPL 等）"
       extra:
         resolution: "24h"
@@ -132,7 +133,7 @@ providers:
       timeout: {connect: 10, read: 20, write: 10}
       retry: {count: 2, backoff_factor: 2, max_delay: 60}
       rate_limit: {requests: 60, period: 60}
-      proxy: "http://127.0.0.1:7890"
+      proxy: "${PROXY_SOCKS5_URL}"
       description: "CryptoQuant 链上指标与交易所资金流"
 
     intotheblock:
@@ -153,8 +154,8 @@ providers:
       timeout: {connect: 10, read: 20, write: 10}
       retry: {count: 2, backoff_factor: 2, max_delay: 60}
       rate_limit: {requests: 60, period: 60}
-      proxy: "http://127.0.0.1:7890"
-      description: "Blockchain.com 免费网络活动指标（活跃地址/交易数/算力/难度）"
+      proxy: null
+      description: "Blockchain.com 免费网络活动指标（活跃地址/交易数/算力/难度，已验证可直连）"
 
   # ======== 交易所资金流 ========
   exchange_flow:
@@ -165,7 +166,7 @@ providers:
       api_key: "${CRYPTOQUANT_API_KEY}"
       timeout: {connect: 10, read: 20, write: 10}
       rate_limit: {requests: 60, period: 60}
-      proxy: "http://127.0.0.1:7890"
+      proxy: "${PROXY_SOCKS5_URL}"
       description: "CryptoQuant 交易所净流入/流出"
 
     glassnode_flow:
@@ -175,7 +176,7 @@ providers:
       api_key: "${GLASSNODE_API_KEY}"
       timeout: {connect: 10, read: 30, write: 10}
       rate_limit: {requests: 30, period: 60}
-      proxy: "http://127.0.0.1:7890"
+      proxy: "${PROXY_SOCKS5_URL}"
       description: "Glassnode 交易所储备/资金流"
 
   # ======== ETF 资金流 ========
@@ -187,7 +188,7 @@ providers:
       timeout: {connect: 10, read: 30, write: 10}
       retry: {count: 2, backoff_factor: 2, max_delay: 60}
       rate_limit: {requests: 10, period: 60}
-      proxy: "http://127.0.0.1:7890"
+      proxy: "${PROXY_SOCKS5_URL}"
       description: "Farside 现货 ETF 资金流（网页抓取）"
       extra:
         scrape_mode: true
@@ -199,7 +200,7 @@ providers:
       api_key: "${SOSOV_VALUE_API_KEY}"
       timeout: {connect: 10, read: 20, write: 10}
       rate_limit: {requests: 30, period: 60}
-      proxy: "http://127.0.0.1:7890"
+      proxy: "${PROXY_SOCKS5_URL}"
       description: "SoSoValue ETF 资金流与持仓"
 
   # ======== 衍生品 ========
@@ -213,7 +214,7 @@ providers:
       timeout: {connect: 5, read: 10, write: 5}
       retry: {count: 3, backoff_factor: 2, max_delay: 30}
       rate_limit: {requests: 2400, period: 60}
-      proxy: null
+      proxy: "${PROXY_SOCKS5_URL}"
       description: "Binance 合约（资金费率/未平仓/多空比）"
 
     coinglass:
@@ -224,7 +225,7 @@ providers:
       timeout: {connect: 5, read: 15, write: 5}
       retry: {count: 2, backoff_factor: 2, max_delay: 30}
       rate_limit: {requests: 30, period: 60}
-      proxy: "http://127.0.0.1:7890"
+      proxy: "${PROXY_SOCKS5_URL}"
       description: "Coinglass 全市场衍生品聚合数据"
 
     bybit_derivatives:
@@ -233,7 +234,7 @@ providers:
       base_url: "https://api.bybit.com"
       timeout: {connect: 5, read: 10, write: 5}
       rate_limit: {requests: 120, period: 60}
-      proxy: "socks5://127.0.0.1:1080"
+      proxy: "${PROXY_SOCKS5_URL}"
       description: "Bybit 合约衍生品数据"
 
   # ======== 期权 ========
@@ -245,7 +246,7 @@ providers:
       timeout: {connect: 5, read: 15, write: 5}
       retry: {count: 3, backoff_factor: 2, max_delay: 30}
       rate_limit: {requests: 120, period: 60}
-      proxy: "http://127.0.0.1:7890"
+      proxy: "${PROXY_SOCKS5_URL}"
       description: "Deribit 期权（隐含波动率/看跌看涨比/最大痛点）"
 
     okx_options:
@@ -255,7 +256,7 @@ providers:
       api_key: "${OKX_API_KEY}"
       timeout: {connect: 5, read: 12, write: 5}
       rate_limit: {requests: 600, period: 60}
-      proxy: "http://127.0.0.1:7890"
+      proxy: "${PROXY_SOCKS5_URL}"
       description: "OKX 期权数据"
 
     coinglass_options:
@@ -266,7 +267,7 @@ providers:
       timeout: {connect: 5, read: 15, write: 5}
       retry: {count: 2, backoff_factor: 2, max_delay: 30}
       rate_limit: {requests: 30, period: 60}
-      proxy: "http://127.0.0.1:7890"
+      proxy: "${PROXY_SOCKS5_URL}"
       description: "Coinglass 期权聚合数据（成交量/到期日）"
 
   # ======== 宏观经济 ========
@@ -279,7 +280,7 @@ providers:
       timeout: {connect: 10, read: 20, write: 10}
       retry: {count: 2, backoff_factor: 2, max_delay: 60}
       rate_limit: {requests: 120, period: 60}
-      proxy: "http://127.0.0.1:7890"
+      proxy: "${PROXY_SOCKS5_URL}"
       description: "FRED 宏观经济数据（利率/美元指数/流动性）"
 
     trading_economics:
@@ -289,7 +290,7 @@ providers:
       api_key: "${TRADING_ECONOMICS_KEY}"
       timeout: {connect: 10, read: 20, write: 10}
       rate_limit: {requests: 60, period: 60}
-      proxy: "http://127.0.0.1:7890"
+      proxy: "${PROXY_SOCKS5_URL}"
       description: "Trading Economics 宏观数据（备用，暂时禁用）"
 
     world_bank:
@@ -321,7 +322,7 @@ providers:
       api_key: "${LUNARCRUSH_API_KEY}"
       timeout: {connect: 5, read: 15, write: 5}
       rate_limit: {requests: 60, period: 60}
-      proxy: "http://127.0.0.1:7890"
+      proxy: "${PROXY_SOCKS5_URL}"
       description: "LunarCrush 社交媒体情绪与热度"
 
 # -----------------------------------------------------------------------------

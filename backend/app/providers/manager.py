@@ -165,13 +165,27 @@ class ProviderManager:
             category: 数据类别
             method: 要调用的方法名（如 "get_current_price"）
             data_type: 数据类型标识（用于缓存 key，默认使用 category + method）
-            **kwargs: 传递给方法的参数
+            **kwargs: 传递给方法的参数；其中 ``provider_name`` 为可选路由参数，
+                仅用于将调用限定到指定 Provider（不透传给方法本身）
 
         Returns:
             FetchResult 包含成功数据或降级结果
         """
         data_type = data_type or f"{category}:{method}"
         queue = self.get_priority_queue(category)
+
+        # 指定 provider 时仅保留该实例（provider_name 是路由参数，不透传给方法）
+        provider_name = kwargs.pop("provider_name", None)
+        if provider_name:
+            queue = [e for e in queue if e.provider.name == provider_name]
+            if not queue:
+                logger.error(
+                    f"Provider '{provider_name}' not in runtime for '{category}'"
+                )
+                return self._handle_all_failed(
+                    data_type,
+                    f"Provider '{provider_name}' not available",
+                )
 
         if not queue:
             logger.error(f"No providers available for category '{category}'")

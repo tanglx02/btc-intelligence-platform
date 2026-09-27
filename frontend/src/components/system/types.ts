@@ -5,6 +5,8 @@
  * 独立于 types/api.ts 的前瞻性契约；接口字段一律按「可缺失」处理，页面侧必须运行时防御。
  */
 
+import type { ProviderConfigInfo } from "@/types/api";
+
 /* -------------------------------------------------------------------------- */
 /* Providers（/providers）                                                     */
 /* -------------------------------------------------------------------------- */
@@ -41,6 +43,8 @@ export interface ProviderRow {
   last_failure_at?: string | null;
   description?: string | null;
   latest_health?: ProviderLatestHealth | null;
+  /** 掩码后的配置明细（Task #33 后返回；详见 types/api.ts ProviderConfigInfo） */
+  config?: ProviderConfigInfo | null;
 }
 
 /** GET /providers/failover-events 列表项 */
@@ -145,6 +149,15 @@ export interface JobRow {
   last_error?: string | null;
   /** 后端暂未返回执行历史；保留字段做防御性渲染 */
   history?: unknown;
+  /* ---- 调度器内存态合并字段（GET /system/jobs 合并返回，可缺失） ---- */
+  /** 是否正在运行 */
+  running?: boolean | null;
+  /** 是否已暂停 */
+  paused?: boolean | null;
+  /** 内存态生效间隔（热更新后可能与 DB 值不同） */
+  interval_seconds_effective?: number | null;
+  /** 最近一次执行结果状态 */
+  last_status?: string | null;
   [key: string]: unknown;
 }
 

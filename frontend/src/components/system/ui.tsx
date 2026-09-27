@@ -88,11 +88,13 @@ export function formatSchedule(
 const CATEGORY_LABELS: Record<string, string> = {
   MARKET: "市场行情",
   ONCHAIN: "链上数据",
+  EXCHANGE_FLOW: "交易所资金流",
   ETF: "ETF 资金流",
   DERIVATIVES: "衍生品",
   OPTIONS: "期权",
   MACRO: "宏观",
   SENTIMENT: "情绪",
+  NEWS: "新闻资讯",
 };
 
 export function categoryLabel(c?: string | null): string {
@@ -104,11 +106,26 @@ export function categoryLabel(c?: string | null): string {
 export const CATEGORY_ORDER = [
   "MARKET",
   "ONCHAIN",
+  "EXCHANGE_FLOW",
   "ETF",
   "DERIVATIVES",
   "OPTIONS",
   "MACRO",
   "SENTIMENT",
+  "NEWS",
+] as const;
+
+/** Provider 9 大数据类别（配置表单下拉选项，与后端 ProviderCategory 枚举对齐） */
+export const PROVIDER_CATEGORY_OPTIONS = [
+  "MARKET",
+  "ONCHAIN",
+  "EXCHANGE_FLOW",
+  "ETF",
+  "DERIVATIVES",
+  "OPTIONS",
+  "MACRO",
+  "SENTIMENT",
+  "NEWS",
 ] as const;
 
 /* -------------------------------------------------------------------------- */
@@ -441,9 +458,57 @@ export function Field({
     <div className={className}>
       <label className={labelClass}>
         {label}
-        {hint && <span className="ml-1.5 font-normal text-muted/70">{hint}</span>}
+        {hint && (
+          <span className="ml-1.5 font-normal text-muted/70" title={hint}>
+            <span
+              aria-hidden
+              className="mr-0.5 inline-block cursor-help rounded-full border border-line px-1 text-[9px] leading-[14px] text-muted"
+              title={hint}
+            >
+              i
+            </span>
+            {hint}
+          </span>
+        )}
       </label>
       {children}
     </div>
+  );
+}
+
+/** 启用/禁用开关（受控；点击不会冒泡到父级行点击事件） */
+export function ToggleSwitch({
+  checked,
+  disabled = false,
+  title,
+  onChange,
+}: {
+  checked: boolean;
+  disabled?: boolean;
+  title?: string;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      title={title}
+      disabled={disabled}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (!disabled) onChange(!checked);
+      }}
+      className={`relative inline-flex h-[18px] w-8 shrink-0 items-center rounded-full border transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+        checked ? "border-up/60 bg-up/30" : "border-line bg-bg"
+      }`}
+    >
+      <span
+        aria-hidden
+        className={`inline-block h-3 w-3 transform rounded-full transition-transform ${
+          checked ? "translate-x-4 bg-up" : "translate-x-0.5 bg-muted"
+        }`}
+      />
+    </button>
   );
 }

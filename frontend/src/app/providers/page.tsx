@@ -6,10 +6,12 @@
  * - Provider 按数据类别分节展示：状态灯 / 健康评分 / 平均延迟 / 成功率 / 优先级 / 锁定
  * - 行展开健康详情（最近成功失败、连续失败、24h 成功率、故障原因、评分细项、快照历史）
  * - 「测试」按钮：POST /providers/{name}/test 实时连通性探测
+ * - 配置后台化：「配置」编辑模态框（凭据掩码/优先级/锁定/限流，PUT 保存即热重载）、
+ *   列表直接切换启用开关、「从 YAML 导入」同步配置、「新增数据源」引导
  * - Failover 事件流（最近 20 条）与 Provider 评分排名
  *
- * API：GET /providers · POST /providers/{name}/test · GET /providers/failover-events ·
- * GET /providers/scores；轮询 30s。
+ * API：GET /providers · PUT /providers/{name} · POST /providers/{name}/test|reload ·
+ * POST /providers/sync-from-yaml · GET /providers/failover-events|scores；轮询 30s。
  */
 
 import { useMemo, useState } from "react";
@@ -20,7 +22,10 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { ErrorState } from "@/components/common/ErrorState";
 import { LoadingSkeleton } from "@/components/common/LoadingSkeleton";
 
+import { ToastHost, useToast } from "@/components/portfolio/toast";
+import { ProviderEditModal } from "@/components/system/ProviderEditModal";
 import { ProviderHealthPanel } from "@/components/system/ProviderHealthPanel";
+import { ProviderImportDialog } from "@/components/system/ProviderImportDialog";
 import {
   CATEGORY_ORDER,
   DataTable,
@@ -29,6 +34,7 @@ import {
   SectionCard,
   StatChip,
   StatusDot,
+  ToggleSwitch,
   btnGhost,
   btnPrimary,
   categoryLabel,
@@ -75,6 +81,36 @@ export default function ProvidersPage() {
   const [testing, setTesting] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<ProviderTestResult | null>(null);
   const [testError, setTestError] = useState<string | null>(null);
+
+  /* 配置后台化：编辑模态框 / 导入对话框 / 启用开关切换中 / toast */
+  const { toast, show } = useToast();
+  const [editing, setEditing] = useState<ProviderRow | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [importDialog, setImportDialog] = useState<{ open: boolean; mode: "create" | "import" }>({
+    open: false,
+    mode: "import",
+  });
+  const [toggling, setToggling] = useState<string | null>(null);
+
+  function openConfig(row: ProviderRow) {
+    setEditing(row);
+    setEditOpen(true);
+  }
+
+  /** 列表直接切换启用/禁用（PUT /providers/{name}，保存即生效） */
+  async function toggleEnabled(row: ProviderRow, next: boolean) {
+    setToggling(row.name);
+    try {
+      const res = await apiClient.providers.updateProvider(row.name, { is_enabled: next });
+      if (res.success === false) throw new Error(res.error?.message ?? "操作失败");
+      show("success", `${row.name} 已${next ? "启用" : "禁用"}，配置即时生效`);
+      providersRes.refresh();
+    } catch (err) {
+      show("error", err instanceof Error ? err.message : "操作失败");
+    } finally {
+      setToggling(null);
+    }
+  }
 
   async function runTest(name: string) {
     setExpanded(name);
@@ -153,8 +189,23 @@ export default function ProvidersPage() {
       <PageHeader
         kicker="System · Provider Center"
         title="数据源中心"
-        description="平台数据从哪里来、当前由哪个源提供服务、主备切换与健康状况 —— 所有原始数据的来路在这里一目了然。"
+        description="平台数据从哪里来、当前由哪个源提供服务、主备切换与健康状况 —— 所有原始数据的来路在这里一目了然。配置修改保存后立即生效，无需重启。"
       >
+        <button
+          type="button"
+          onClick={() => setImportDialog({ open: true, mode: "create" })}
+          className={btnGhost}
+          title="界面仅支持配置已实现的数据源；新数据源需从 YAML 导入"
+        >
+          新增数据源
+        </button>
+        <button
+          type="button"
+          onClick={() => setImportDialog({ open: true, mode: "import" })}
+          className={btnGhost}
+        >
+          从 YAML 导入
+        </button>
         <span className="rounded-lg border border-line bg-bg px-2.5 py-1 text-[11px] text-muted">
           轮询 30s · 更新 {formatRelative(providersRes.lastUpdatedAt)}
         </span>
@@ -202,8 +253,18 @@ export default function ProvidersPage() {
             subtitle={`主备优先级链 · 共 ${list.length} 个数据源`}
           >
             <DataTable
-              columns={["Provider", "状态", "健康评分", "平均延迟", "24h 成功率", "优先级", "锁定/限流", "操作"]}
-              minWidth={880}
+              columns={[
+                "Provider",
+                "状态",
+                "健康评分",
+                "平均延迟",
+                "24h 成功率",
+                "优先级",
+                "锁定/限流",
+                "启用",
+                "操作",
+              ]}
+              minWidth={1000}
             >
               {list.map((p) => {
                   const isExpanded = expanded === p.name;
@@ -216,11 +277,14 @@ export default function ProvidersPage() {
                       isExpanded={isExpanded}
                       rateLimited={rateLimited}
                       disabled={disabled}
+                      toggling={toggling === p.name}
                       testing={testing === p.name}
                       testResult={expanded === p.name ? testResult : null}
                       testError={expanded === p.name ? testError : null}
                       onToggle={() => setExpanded(isExpanded ? null : p.name)}
                       onTest={() => void runTest(p.name)}
+                      onConfig={() => openConfig(p)}
+                      onToggleEnabled={(next) => void toggleEnabled(p, next)}
                     />
                   );
                 })}
@@ -246,6 +310,30 @@ export default function ProvidersPage() {
         lastUpdatedAt={scoresRes.lastUpdatedAt}
         onRetry={scoresRes.refresh}
       />
+
+      {/* 配置编辑模态框（保存即热重载生效） */}
+      <ProviderEditModal
+        open={editOpen}
+        provider={editing}
+        onClose={() => setEditOpen(false)}
+        onSaved={(msg) => {
+          show("success", msg);
+          providersRes.refresh();
+        }}
+      />
+
+      {/* 新增数据源引导 / 从 YAML 导入确认框 */}
+      <ProviderImportDialog
+        open={importDialog.open}
+        mode={importDialog.mode}
+        onClose={() => setImportDialog((prev) => ({ ...prev, open: false }))}
+        onImported={(imported, overwrite) => {
+          show("success", `导入完成：${imported} 个数据源已同步（${overwrite ? "覆盖模式" : "仅新增"}）`);
+          providersRes.refresh();
+        }}
+      />
+
+      <ToastHost toast={toast} />
     </div>
   );
 }
@@ -259,21 +347,27 @@ function ProviderRowGroup({
   isExpanded,
   rateLimited,
   disabled,
+  toggling,
   testing,
   testResult,
   testError,
   onToggle,
   onTest,
+  onConfig,
+  onToggleEnabled,
 }: {
   row: ProviderRow;
   isExpanded: boolean;
   rateLimited: boolean;
   disabled: boolean;
+  toggling: boolean;
   testing: boolean;
   testResult: ProviderTestResult | null;
   testError: string | null;
   onToggle: () => void;
   onTest: () => void;
+  onConfig: () => void;
+  onToggleEnabled: (next: boolean) => void;
 }) {
   const score = typeof row.health_score === "number" ? row.health_score : null;
   return (
@@ -312,19 +406,32 @@ function ProviderRowGroup({
         <td className={tdMutedClass}>{formatPct(row.latest_health?.success_rate_24h)}</td>
         <td className={tdMutedClass}>{row.priority ?? "—"}</td>
         <td className={tdClass}>
-          {disabled ? (
-            <span className="rounded border border-down/40 bg-down/10 px-1.5 py-0.5 text-[10px] text-down">
-              已禁用
-            </span>
-          ) : rateLimited ? (
-            <span className="rounded border border-warn/40 bg-warn/10 px-1.5 py-0.5 text-[10px] text-warn">
-              限流中
-            </span>
-          ) : (
-            <span className="rounded border border-line px-1.5 py-0.5 text-[10px] text-muted">
-              正常
-            </span>
-          )}
+          <div className="flex items-center gap-1.5">
+            {row.config?.is_locked === true && (
+              <span
+                className="rounded border border-accent/40 bg-accent/10 px-1.5 py-0.5 text-[10px] text-accent"
+                title="优先级已锁定，不参与健康评分自动调整"
+              >
+                锁定
+              </span>
+            )}
+            {rateLimited && (
+              <span className="rounded border border-warn/40 bg-warn/10 px-1.5 py-0.5 text-[10px] text-warn">
+                限流中
+              </span>
+            )}
+            {row.config?.is_locked !== true && !rateLimited && (
+              <span className="rounded border border-line px-1.5 py-0.5 text-[10px] text-muted">正常</span>
+            )}
+          </div>
+        </td>
+        <td className={tdClass} onClick={(e) => e.stopPropagation()}>
+          <ToggleSwitch
+            checked={!disabled}
+            disabled={toggling}
+            title={disabled ? "启用该数据源（立即生效）" : "禁用该数据源（立即生效）"}
+            onChange={onToggleEnabled}
+          />
         </td>
         <td className={tdClass}>
           <div className="flex items-center gap-1.5">
@@ -338,6 +445,17 @@ function ProviderRowGroup({
               className={testing ? btnGhost : btnPrimary}
             >
               {testing ? "测试中…" : "测试"}
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onConfig();
+              }}
+              className={btnGhost}
+              title="编辑连接 / 凭据 / 限流 / 优先级配置"
+            >
+              配置
             </button>
             <button
               type="button"

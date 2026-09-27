@@ -161,6 +161,8 @@ import type {
   Holdings,
   IndicatorDefinition,
   IndicatorValue,
+  JobConfigUpdateBody,
+  JobUpdateResult,
   LiquidationData,
   MacroEvent,
   MacroIndicator,
@@ -174,11 +176,16 @@ import type {
   OptionsOverview,
   PerformanceReport,
   PriceData,
+  ProviderConfigUpdateBody,
   ProviderHealth,
   ProviderInfo,
+  ProviderReloadResult,
+  ProviderSyncResult,
+  ProviderUpdateResult,
   PutCallData,
   SystemHealth,
   SystemJobInfo,
+  SystemSettingsPayload,
   Transaction,
   UserPlan,
 } from "@/types/api";
@@ -338,6 +345,15 @@ export const apiClient = {
       post<Record<string, unknown>>(`/providers/${encodeURIComponent(id)}/test`),
     getFailoverEvents: () => get<FailoverEvent[]>("/providers/failover-events"),
     getScores: () => get<Record<string, unknown>>("/providers/scores"),
+    /** 更新 Provider 配置（落库 + 热重载生效；凭据空串=保留旧值） */
+    updateProvider: (name: string, data: ProviderConfigUpdateBody) =>
+      put<ProviderUpdateResult>(`/providers/${encodeURIComponent(name)}`, data),
+    /** 手动热重载指定 Provider（重建实例 + 重建优先级队列） */
+    reloadProvider: (name: string) =>
+      post<ProviderReloadResult>(`/providers/${encodeURIComponent(name)}/reload`),
+    /** 从 providers.yaml 导入配置到 DB（overwrite=true 覆盖已有行） */
+    syncFromYaml: (overwrite = false) =>
+      post<ProviderSyncResult>("/providers/sync-from-yaml", { overwrite }),
   },
 
   /** 系统 */
@@ -349,8 +365,23 @@ export const apiClient = {
       post<Record<string, unknown>>(`/system/jobs/${id}/run`, params),
     pauseJob: (id: string) => post<Record<string, unknown>>(`/system/jobs/${id}/pause`),
     resumeJob: (id: string) => post<Record<string, unknown>>(`/system/jobs/${id}/resume`),
+    /** 更新调度任务配置（interval_seconds/enabled，即时热生效，无需重启） */
+    updateJob: (name: string, data: JobConfigUpdateBody) =>
+      put<JobUpdateResult>(`/system/jobs/${encodeURIComponent(name)}`, data),
     getDataQuality: () => get<Record<string, unknown>>("/system/data-quality"),
     getStats: () => get<Record<string, unknown>>("/system/stats"),
+  },
+
+  /** 系统设置（配置后台化；命名空间 alert/provider/platform） */
+  settings: {
+    /** 全部/分组设置（is_secret 值掩码 "***"） */
+    getAll: (namespace?: string) =>
+      get<SystemSettingsPayload>("/settings", {
+        params: namespace ? { namespace } : undefined,
+      }),
+    /** 更新单项设置（upsert + 审计 + 缓存即时失效 → 热生效） */
+    update: (key: string, value: unknown) =>
+      put<{ key: string; updated: boolean }>(`/settings/${encodeURIComponent(key)}`, { value }),
   },
 
   /**

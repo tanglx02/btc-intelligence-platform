@@ -674,6 +674,79 @@ export interface FailoverEvent {
   [key: string]: unknown;
 }
 
+/**
+ * Provider 配置明细（GET /providers 列表项 config 字段，敏感值已掩码）。
+ * 与 backend/app/services/provider_config_service.py mask_provider_row 对齐。
+ */
+export interface ProviderConfigInfo {
+  base_url?: string | null;
+  /** 代理 URL（http/https/socks5），null = 直连 */
+  proxy?: string | null;
+  timeout_config?: { connect?: number; read?: number; write?: number; pool?: number } | null;
+  retry_config?: {
+    count?: number;
+    backoff_factor?: number;
+    max_delay?: number;
+    jitter?: boolean;
+    [key: string]: unknown;
+  } | null;
+  rate_limit?: {
+    /** 窗口内最大请求数 */
+    requests?: number | null;
+    /** 窗口秒数（通常 60 = 每分钟） */
+    period?: number | null;
+    burst?: number | null;
+  } | null;
+  /** "***" = 已配置，空串/undefined = 未配置 */
+  api_key?: string | null;
+  api_secret?: string | null;
+  api_passphrase?: string | null;
+  priority?: number | null;
+  is_enabled?: boolean | null;
+  /** 锁定后健康评分不再自动调整优先级 */
+  is_locked?: boolean | null;
+  /** yaml / db / default：配置来源 */
+  config_source?: string | null;
+  config_overrides?: Record<string, unknown> | null;
+  [key: string]: unknown;
+}
+
+/** PUT /providers/{name} 请求体（部分更新；凭据空串=保留旧值，null=清除） */
+export interface ProviderConfigUpdateBody {
+  priority?: number;
+  is_enabled?: boolean;
+  is_locked?: boolean;
+  base_url?: string;
+  proxy?: string;
+  timeout_config?: number | Record<string, unknown>;
+  retry_config?: Record<string, unknown>;
+  rate_limit?: Record<string, unknown>;
+  api_key?: string | null;
+  api_secret?: string | null;
+  api_passphrase?: string | null;
+}
+
+/** PUT /providers/{name} 响应体 */
+export interface ProviderUpdateResult {
+  name?: string;
+  config?: ProviderConfigInfo | null;
+  reloaded?: boolean;
+  [key: string]: unknown;
+}
+
+/** POST /providers/{name}/reload 响应体 */
+export interface ProviderReloadResult {
+  name?: string;
+  reloaded?: boolean;
+  note?: string | null;
+}
+
+/** POST /providers/sync-from-yaml 响应体 */
+export interface ProviderSyncResult {
+  imported?: number;
+  overwrite?: boolean;
+}
+
 /* -------------------------------------------------------------------------- */
 /* Alerts（智能预警）                                                          */
 /* -------------------------------------------------------------------------- */
@@ -783,6 +856,44 @@ export interface SystemJobInfo {
   [key: string]: unknown;
 }
 
+/** 调度任务配置行（GET /system/jobs，DB 行合并调度器内存态） */
+export interface JobConfigInfo {
+  id?: string | null;
+  job_name?: string | null;
+  job_group?: string | null;
+  description?: string | null;
+  schedule_cron?: string | null;
+  schedule_interval_seconds?: number | null;
+  /** 内存态生效间隔（热更新后可能与 DB 值不同） */
+  interval_seconds_effective?: number | null;
+  is_enabled?: boolean | null;
+  status?: string | null;
+  last_status?: string | null;
+  last_run_at?: string | null;
+  next_run_at?: string | null;
+  last_duration_ms?: number | null;
+  avg_duration_ms?: number | null;
+  running?: boolean | null;
+  paused?: boolean | null;
+  consecutive_failures?: number | null;
+  last_error?: string | null;
+  [key: string]: unknown;
+}
+
+/** PUT /system/jobs/{job_name} 请求体（interval_seconds/enabled 至少一项） */
+export interface JobConfigUpdateBody {
+  interval_seconds?: number;
+  enabled?: boolean;
+}
+
+/** PUT /system/jobs/{job_name} 响应体（data） */
+export interface JobUpdateResult {
+  job_name?: string;
+  updated?: boolean;
+  task?: Record<string, unknown> | null;
+  [key: string]: unknown;
+}
+
 /** 系统健康检查（GET /system/health） */
 export interface SystemHealth {
   status: "OK" | "DEGRADED" | "UNAVAILABLE" | (string & {});
@@ -793,6 +904,27 @@ export interface SystemHealth {
     { status: string; source?: string; note?: string; [key: string]: unknown }
   >;
   [key: string]: unknown;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Settings（系统设置，配置后台化）                                             */
+/* -------------------------------------------------------------------------- */
+
+/** 系统设置行（GET /settings，is_secret 值掩码 "***"） */
+export interface SystemSetting {
+  key: string;
+  value?: unknown;
+  is_secret?: boolean;
+  description?: string | null;
+  updated_by?: string | null;
+  updated_at?: string | null;
+}
+
+/** GET /settings 响应体（data） */
+export interface SystemSettingsPayload {
+  count?: number;
+  settings?: SystemSetting[];
+  namespace?: string | null;
 }
 
 /* -------------------------------------------------------------------------- */

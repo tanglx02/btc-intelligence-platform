@@ -62,7 +62,7 @@ export function ProviderHealthPanel({
 
   return (
     <tr className="border-b border-line/60 bg-bg/60">
-      <td colSpan={8} className="px-3 py-4 sm:px-6">
+      <td colSpan={9} className="px-3 py-4 sm:px-6">
         <div className="animate-fade-up space-y-4">
           {/* 头部：标识 + 测试按钮 */}
           <div className="flex flex-wrap items-center justify-between gap-2">
